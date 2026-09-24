@@ -1,0 +1,7 @@
+# MachineMind AI - Core Machine Learning Dependencies
+numpy
+pandas
+matplotlib
+seaborn
+scikit-learn
+jupyter
