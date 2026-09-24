@@ -71,6 +71,7 @@ ml-service/models/*
 # 7. Generated Reports & Output Figures
 ml-service/reports/*
 !ml-service/reports/.gitkeep
+!ml-service/reports/*.md
 
 # 8. IDE & System Files
 .vscode/

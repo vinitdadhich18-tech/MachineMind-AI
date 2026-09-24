@@ -1,0 +1,107 @@
+# ML_PROGRESS.md — MachineMind AI
+
+> Live progress tracker. Update it after each **verified** phase (see "How to update").
+
+## 1. Project name
+MachineMind AI
+
+## 2. Current project objective
+Build a vibration-based condition-monitoring prototype for rolling-element bearings using **unsupervised anomaly detection** on the NASA IMS Bearing Dataset (provisional subset: **Set 2**). The model outputs an anomaly score and an alert. It must **not** claim to predict failure time or remaining useful life.
+
+Dataset and subset stay **provisional** until Phases 1-2 verify them. Full details: `PROJECT_CONTEXT.md`.
+
+## 3. Current phase
+**Phase 1 Completed.** Next phase to begin: **Phase 2 — Dataset Acquisition and Organization**.
+
+## 4. Overall progress checklist
+Progress: **1 of 11 phases completed**
+
+- [x] Phase 1: Dataset Documentation and Understanding
+- [ ] Phase 2: Dataset Acquisition and Organization
+- [ ] Phase 3: Exploratory Data Analysis
+- [ ] Phase 4: Signal Preprocessing
+- [ ] Phase 5: Feature Engineering
+- [ ] Phase 6: Statistical Baseline
+- [ ] Phase 7: ML Model Development
+- [ ] Phase 8: Evaluation
+- [ ] Phase 9: Model Improvement
+- [ ] Phase 10: Model Packaging
+- [ ] Phase 11: ML Completion and Integration Readiness
+
+Pre-project setup (not a development phase):
+- [x] Python environment created and verified (Python 3.14.2, venv, core libraries installed)
+- [x] `PROJECT_CONTEXT.md`, `MachineMind_AI_ML_Prompt_Pack.md` and `ML_PROGRESS.md` saved in the repository
+
+## 5. Status of all 11 phases
+Status values: **Not Started**, **In Progress**, **Blocked**, **Completed**
+
+| # | Phase | Status | Started | Verified (date) | Notes |
+|---|---|---|---|---|---|
+| 1 | Dataset Documentation and Understanding | Completed | 2026-09-25 | 2026-09-25 | Preliminary report created & approved |
+| 2 | Dataset Acquisition and Organization | Not Started |  |  |  |
+| 3 | Exploratory Data Analysis | Not Started |  |  |  |
+| 4 | Signal Preprocessing | Not Started |  |  |  |
+| 5 | Feature Engineering | Not Started |  |  |  |
+| 6 | Statistical Baseline | Not Started |  |  |  |
+| 7 | ML Model Development | Not Started |  |  |  |
+| 8 | Evaluation | Not Started |  |  |  |
+| 9 | Model Improvement | Not Started |  |  |  |
+| 10 | Model Packaging | Not Started |  |  |  |
+| 11 | ML Completion and Integration Readiness | Not Started |  |  |  |
+
+## 6. Completed deliverables
+Add a row only after the file exists **and** you have checked it.
+
+| Phase | Deliverable (file path) | Verified how |
+|---|---|---|
+| 1 | `ml-service/reports/dataset_documentation.md` | User review and approval of preliminary report |
+| 2 | *(none yet)* | |
+| 3 | *(none yet)* | |
+| 4 | *(none yet)* | |
+| 5 | *(none yet)* | |
+| 6 | *(none yet)* | |
+| 7 | *(none yet)* | |
+| 8 | *(none yet)* | |
+| 9 | *(none yet)* | |
+| 10 | *(none yet)* | |
+| 11 | *(none yet)* | |
+
+## 7. Important decisions
+| Date | Decision | Status (Provisional / Confirmed) | Reason |
+|---|---|---|---|
+| 2026-09-25 | Dataset: NASA IMS Bearing Dataset | Provisional | Only compared dataset with natural run-to-failure degradation; documentation still to verify |
+| 2026-09-25 | Initial subset: IMS Set 2 | Provisional | Smallest set (984 files reported), one documented failure; Set 3 excluded because of a reported documentation mismatch |
+| 2026-09-25 | Task: unsupervised anomaly detection | Provisional | No per-file labels exist; no RUL or failure-time claims |
+| 2026-09-25 | Healthy period | Not decided | Decided in Phase 6, with reasoning recorded |
+
+## 8. Experiment results
+Record every experiment, including unsuccessful ones. Results must come from actually running the code.
+
+| ID | Phase | What was tried | Configuration (features, model, seed, periods) | Result | Conclusion / caveat |
+|---|---|---|---|---|---|
+| | | | | | |
+
+## 9. Known issues and blockers
+| # | Issue | Type (Issue / Blocker) | Status |
+|---|---|---|---|
+| 1 | IMS licence metadata is inconsistent; usage for public sharing unresolved | Issue | Open |
+| 2 | Set 2 raw file details are from secondary sources; raw files to be inspected in Phase 2 | Issue | Open (Phase 2 verification) |
+| 3 | Sensor units and calibration unknown | Issue | Open |
+| 4 | Python 3.14.2 compatibility of any additional package unverified | Issue | Open |
+| 5 | Only one documented failure in Set 2; evaluation will be a single-case study | Limitation | Accepted |
+
+## 10. Next action
+**Prepare for Phase 2 — Dataset Acquisition and Organization when ready to inspect raw dataset files.**
+
+---
+
+## How to update this file
+After **each** phase:
+1. Read the agent's summary and check the files it claims to have created. Re-run the notebook or check yourself; do not rely on the summary alone.
+2. Confirm the phase's completion checklist is honestly satisfied.
+3. Set the phase status: **In Progress** while working, **Blocked** if you cannot continue (write why in Known issues), **Completed** only after you verified it.
+4. Fill in the Verified date, add rows to Completed deliverables, and record experiments (Section 8) and decisions (Section 7).
+5. Update Section 3 (Current phase), the checklist and the "x of 11" count, then write the Next action.
+6. If a decision changed, also update `PROJECT_CONTEXT.md`.
+7. **Git Commit Reminder:** Run `git status`, verify `.gitignore` safety (no raw data, venv, secrets, or data binaries staged), explain changed files, suggest a meaningful commit message, and present exact `git add` and `git commit` commands for manual execution. Never execute git commit automatically.
+Never mark a phase Completed because the environment works or because code was generated; only because it was verified.
