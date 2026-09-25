@@ -11,14 +11,14 @@ Build a vibration-based condition-monitoring prototype for rolling-element beari
 Dataset and subset stay **provisional** until Phases 1-2 verify them. Full details: `PROJECT_CONTEXT.md`.
 
 ## 3. Current phase
-**Phase 2 Completed.** Next phase to begin: **Phase 3 — Exploratory Data Analysis**.
+**Phase 3 Completed.** Next phase to begin: **Phase 4 — Signal Preprocessing**.
 
 ## 4. Overall progress checklist
-Progress: **2 of 11 phases completed**
+Progress: **3 of 11 phases completed**
 
 - [x] Phase 1: Dataset Documentation and Understanding
 - [x] Phase 2: Dataset Acquisition and Organization
-- [ ] Phase 3: Exploratory Data Analysis
+- [x] Phase 3: Exploratory Data Analysis
 - [ ] Phase 4: Signal Preprocessing
 - [ ] Phase 5: Feature Engineering
 - [ ] Phase 6: Statistical Baseline
@@ -39,7 +39,7 @@ Status values: **Not Started**, **In Progress**, **Blocked**, **Completed**
 |---|---|---|---|---|---|
 | 1 | Dataset Documentation and Understanding | Completed | 2026-09-25 | 2026-09-25 | Preliminary report created & approved |
 | 2 | Dataset Acquisition and Organization | Completed | 2026-09-25 | 2026-09-25 | Set 2 acquired, SHA-256 verified, read-only script executed, inventory report written |
-| 3 | Exploratory Data Analysis | Not Started |  |  |  |
+| 3 | Exploratory Data Analysis | Completed | 2026-09-26 | 2026-09-26 | 984 files quality scanned (100% valid), waveforms & trend plots generated, EDA report written |
 | 4 | Signal Preprocessing | Not Started |  |  |  |
 | 5 | Feature Engineering | Not Started |  |  |  |
 | 6 | Statistical Baseline | Not Started |  |  |  |
@@ -56,7 +56,7 @@ Add a row only after the file exists **and** you have checked it.
 |---|---|---|
 | 1 | `ml-service/reports/dataset_documentation.md` | User review and approval of preliminary report |
 | 2 | `ml-service/reports/data_inventory.md`, `ml-service/src/verify_dataset.py` | Verification script execution output & user approval |
-| 3 | *(none yet)* | |
+| 3 | `ml-service/notebooks/01_eda.ipynb`, `ml-service/reports/eda_report.md`, `ml-service/reports/figures/eda/` | Full dataset scan execution, trend plot generation & user review |
 | 4 | *(none yet)* | |
 | 5 | *(none yet)* | |
 | 6 | *(none yet)* | |
@@ -91,7 +91,7 @@ Record every experiment, including unsuccessful ones. Results must come from act
 | 5 | Only one documented failure in Set 2; evaluation will be a single-case study | Limitation | Accepted |
 
 ## 10. Next action
-**Prepare for Phase 3 — Exploratory Data Analysis when ready.**
+**Prepare for Phase 4 — Signal Preprocessing when ready.**
 
 ---
 
