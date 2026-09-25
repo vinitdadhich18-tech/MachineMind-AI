@@ -11,16 +11,16 @@ Build a vibration-based condition-monitoring prototype for rolling-element beari
 Dataset and subset stay **provisional** until Phases 1-2 verify them. Full details: `PROJECT_CONTEXT.md`.
 
 ## 3. Current phase
-**Phase 3 Completed.** Next phase to begin: **Phase 4 — Signal Preprocessing**.
+**Phase 5 Completed — Feature Engineering.**
 
 ## 4. Overall progress checklist
-Progress: **3 of 11 phases completed**
+Progress: **5 of 11 phases completed**
 
 - [x] Phase 1: Dataset Documentation and Understanding
 - [x] Phase 2: Dataset Acquisition and Organization
 - [x] Phase 3: Exploratory Data Analysis
-- [ ] Phase 4: Signal Preprocessing
-- [ ] Phase 5: Feature Engineering
+- [x] Phase 4: Signal Preprocessing
+- [x] Phase 5: Feature Engineering
 - [ ] Phase 6: Statistical Baseline
 - [ ] Phase 7: ML Model Development
 - [ ] Phase 8: Evaluation
@@ -40,8 +40,8 @@ Status values: **Not Started**, **In Progress**, **Blocked**, **Completed**
 | 1 | Dataset Documentation and Understanding | Completed | 2026-09-25 | 2026-09-25 | Preliminary report created & approved |
 | 2 | Dataset Acquisition and Organization | Completed | 2026-09-25 | 2026-09-25 | Set 2 acquired, SHA-256 verified, read-only script executed, inventory report written |
 | 3 | Exploratory Data Analysis | Completed | 2026-09-26 | 2026-09-26 | 984 files quality scanned (100% valid), waveforms & trend plots generated, EDA report written |
-| 4 | Signal Preprocessing | Not Started |  |  |  |
-| 5 | Feature Engineering | Not Started |  |  |  |
+| 4 | Signal Preprocessing | Completed | 2026-09-26 | 2026-09-26 | Manifest created (984 files valid), remove_dc_offset & extract_windows implemented, tested & validated |
+| 5 | Feature Engineering | Completed | 2026-09-26 | 2026-09-26 | Time & frequency domain utilities implemented in src/feature_extraction.py, unit tested, 984 snapshots extracted to features_set2.csv |
 | 6 | Statistical Baseline | Not Started |  |  |  |
 | 7 | ML Model Development | Not Started |  |  |  |
 | 8 | Evaluation | Not Started |  |  |  |
@@ -57,8 +57,8 @@ Add a row only after the file exists **and** you have checked it.
 | 1 | `ml-service/reports/dataset_documentation.md` | User review and approval of preliminary report |
 | 2 | `ml-service/reports/data_inventory.md`, `ml-service/src/verify_dataset.py` | Verification script execution output & user approval |
 | 3 | `ml-service/notebooks/01_eda.ipynb`, `ml-service/reports/eda_report.md`, `ml-service/reports/figures/eda/` | Full dataset scan execution, trend plot generation & user review |
-| 4 | *(none yet)* | |
-| 5 | *(none yet)* | |
+| 4 | `ml-service/src/preprocessing.py`, `ml-service/data/processed/manifest_set2.csv`, `ml-service/notebooks/02_preprocessing.ipynb`, `ml-service/reports/preprocessing_notes.md` | Synthetic unit testing, manifest validation, empirical pipeline execution & user review |
+| 5 | `ml-service/src/feature_extraction.py`, `ml-service/src/test_feature_extraction.py`, `ml-service/data/processed/features_set2.csv`, `ml-service/reports/feature_engineering_notes.md` | Unit test suite execution (7/7 passed), 984-file dataset extraction (984x40, 0 NaNs) & documentation |
 | 6 | *(none yet)* | |
 | 7 | *(none yet)* | |
 | 8 | *(none yet)* | |
@@ -91,7 +91,7 @@ Record every experiment, including unsuccessful ones. Results must come from act
 | 5 | Only one documented failure in Set 2; evaluation will be a single-case study | Limitation | Accepted |
 
 ## 10. Next action
-**Prepare for Phase 4 — Signal Preprocessing when ready.**
+**Prepare for Phase 6 — Statistical Baseline when ready.**
 
 ---
 
