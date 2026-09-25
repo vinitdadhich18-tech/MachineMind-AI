@@ -11,13 +11,13 @@ Build a vibration-based condition-monitoring prototype for rolling-element beari
 Dataset and subset stay **provisional** until Phases 1-2 verify them. Full details: `PROJECT_CONTEXT.md`.
 
 ## 3. Current phase
-**Phase 1 Completed.** Next phase to begin: **Phase 2 — Dataset Acquisition and Organization**.
+**Phase 2 Completed.** Next phase to begin: **Phase 3 — Exploratory Data Analysis**.
 
 ## 4. Overall progress checklist
-Progress: **1 of 11 phases completed**
+Progress: **2 of 11 phases completed**
 
 - [x] Phase 1: Dataset Documentation and Understanding
-- [ ] Phase 2: Dataset Acquisition and Organization
+- [x] Phase 2: Dataset Acquisition and Organization
 - [ ] Phase 3: Exploratory Data Analysis
 - [ ] Phase 4: Signal Preprocessing
 - [ ] Phase 5: Feature Engineering
@@ -38,7 +38,7 @@ Status values: **Not Started**, **In Progress**, **Blocked**, **Completed**
 | # | Phase | Status | Started | Verified (date) | Notes |
 |---|---|---|---|---|---|
 | 1 | Dataset Documentation and Understanding | Completed | 2026-09-25 | 2026-09-25 | Preliminary report created & approved |
-| 2 | Dataset Acquisition and Organization | Not Started |  |  |  |
+| 2 | Dataset Acquisition and Organization | Completed | 2026-09-25 | 2026-09-25 | Set 2 acquired, SHA-256 verified, read-only script executed, inventory report written |
 | 3 | Exploratory Data Analysis | Not Started |  |  |  |
 | 4 | Signal Preprocessing | Not Started |  |  |  |
 | 5 | Feature Engineering | Not Started |  |  |  |
@@ -55,7 +55,7 @@ Add a row only after the file exists **and** you have checked it.
 | Phase | Deliverable (file path) | Verified how |
 |---|---|---|
 | 1 | `ml-service/reports/dataset_documentation.md` | User review and approval of preliminary report |
-| 2 | *(none yet)* | |
+| 2 | `ml-service/reports/data_inventory.md`, `ml-service/src/verify_dataset.py` | Verification script execution output & user approval |
 | 3 | *(none yet)* | |
 | 4 | *(none yet)* | |
 | 5 | *(none yet)* | |
@@ -85,13 +85,13 @@ Record every experiment, including unsuccessful ones. Results must come from act
 | # | Issue | Type (Issue / Blocker) | Status |
 |---|---|---|---|
 | 1 | IMS licence metadata is inconsistent; usage for public sharing unresolved | Issue | Open |
-| 2 | Set 2 raw file details are from secondary sources; raw files to be inspected in Phase 2 | Issue | Open (Phase 2 verification) |
+| 2 | Set 2 raw file details verified (984 files, 600s intervals, 20480x4 shape) | Issue | Verified in Phase 2 |
 | 3 | Sensor units and calibration unknown | Issue | Open |
 | 4 | Python 3.14.2 compatibility of any additional package unverified | Issue | Open |
 | 5 | Only one documented failure in Set 2; evaluation will be a single-case study | Limitation | Accepted |
 
 ## 10. Next action
-**Prepare for Phase 2 — Dataset Acquisition and Organization when ready to inspect raw dataset files.**
+**Prepare for Phase 3 — Exploratory Data Analysis when ready.**
 
 ---
 
