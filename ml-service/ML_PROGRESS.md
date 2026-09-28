@@ -11,17 +11,17 @@ Build a vibration-based condition-monitoring prototype for rolling-element beari
 Dataset and subset stay **provisional** until Phases 1-2 verify them. Full details: `PROJECT_CONTEXT.md`.
 
 ## 3. Current phase
-**Phase 5 Completed — Feature Engineering.**
+**Phase 6 Completed — Statistical Baseline.**
 
 ## 4. Overall progress checklist
-Progress: **5 of 11 phases completed**
+Progress: **6 of 11 phases completed**
 
 - [x] Phase 1: Dataset Documentation and Understanding
 - [x] Phase 2: Dataset Acquisition and Organization
 - [x] Phase 3: Exploratory Data Analysis
 - [x] Phase 4: Signal Preprocessing
 - [x] Phase 5: Feature Engineering
-- [ ] Phase 6: Statistical Baseline
+- [x] Phase 6: Statistical Baseline
 - [ ] Phase 7: ML Model Development
 - [ ] Phase 8: Evaluation
 - [ ] Phase 9: Model Improvement
@@ -42,7 +42,7 @@ Status values: **Not Started**, **In Progress**, **Blocked**, **Completed**
 | 3 | Exploratory Data Analysis | Completed | 2026-09-26 | 2026-09-26 | 984 files quality scanned (100% valid), waveforms & trend plots generated, EDA report written |
 | 4 | Signal Preprocessing | Completed | 2026-09-26 | 2026-09-26 | Manifest created (984 files valid), remove_dc_offset & extract_windows implemented, tested & validated |
 | 5 | Feature Engineering | Completed | 2026-09-26 | 2026-09-26 | Time & frequency domain utilities implemented in src/feature_extraction.py, unit tested, 984 snapshots extracted to features_set2.csv |
-| 6 | Statistical Baseline | Not Started |  |  |  |
+| 6 | Statistical Baseline | Completed | 2026-09-28 | 2026-09-28 | Baseline module implemented in src/baseline.py (11/11 unit tests passed), 984 baseline scores exported, notebook & 3 reports completed |
 | 7 | ML Model Development | Not Started |  |  |  |
 | 8 | Evaluation | Not Started |  |  |  |
 | 9 | Model Improvement | Not Started |  |  |  |
@@ -59,7 +59,7 @@ Add a row only after the file exists **and** you have checked it.
 | 3 | `ml-service/notebooks/01_eda.ipynb`, `ml-service/reports/eda_report.md`, `ml-service/reports/figures/eda/` | Full dataset scan execution, trend plot generation & user review |
 | 4 | `ml-service/src/preprocessing.py`, `ml-service/data/processed/manifest_set2.csv`, `ml-service/notebooks/02_preprocessing.ipynb`, `ml-service/reports/preprocessing_notes.md` | Synthetic unit testing, manifest validation, empirical pipeline execution & user review |
 | 5 | `ml-service/src/feature_extraction.py`, `ml-service/src/test_feature_extraction.py`, `ml-service/data/processed/features_set2.csv`, `ml-service/reports/feature_engineering_notes.md` | Unit test suite execution (7/7 passed), 984-file dataset extraction (984x40, 0 NaNs) & documentation |
-| 6 | *(none yet)* | |
+| 6 | `ml-service/src/baseline.py`, `ml-service/src/test_baseline.py`, `ml-service/data/processed/baseline_scores_set2.csv`, `ml-service/notebooks/04_statistical_baseline.ipynb`, `ml-service/reports/statistical_baseline_report.md`, `ml-service/reports/baseline_score_analysis.md`, `ml-service/reports/baseline_evaluation.md`, `ml-service/reports/figures/baseline/`, `ml-service/reports/figures/baseline_analysis/` | Unit test suite execution (11/11 passed), notebook execution (top-to-bottom clean run), dataset verification & user review |
 | 7 | *(none yet)* | |
 | 8 | *(none yet)* | |
 | 9 | *(none yet)* | |
@@ -72,14 +72,14 @@ Add a row only after the file exists **and** you have checked it.
 | 2026-09-25 | Dataset: NASA IMS Bearing Dataset | Provisional | Only compared dataset with natural run-to-failure degradation; documentation still to verify |
 | 2026-09-25 | Initial subset: IMS Set 2 | Provisional | Smallest set (984 files reported), one documented failure; Set 3 excluded because of a reported documentation mismatch |
 | 2026-09-25 | Task: unsupervised anomaly detection | Provisional | No per-file labels exist; no RUL or failure-time claims |
-| 2026-09-25 | Healthy period | Not decided | Decided in Phase 6, with reasoning recorded |
+| 2026-09-28 | Chronological Baseline Partition | Provisional Reference | Baseline fitting (0–159), Reference evaluation (160–199), Sequential evaluation (200–983). Physical health status remains unverified hypothesis. |
 
 ## 8. Experiment results
 Record every experiment, including unsuccessful ones. Results must come from actually running the code.
 
 | ID | Phase | What was tried | Configuration (features, model, seed, periods) | Result | Conclusion / caveat |
 |---|---|---|---|---|---|
-| | | | | | |
+| EXP-01 | Phase 6 | Non-ML Statistical Baseline Scoring | 36 features, ref_end_idx=160, frozen baseline | `score_rms_z` mean=0.92 (fit), 0.97 (ref eval), 12.30 (seq eval); sustained run >3.0 starts at index 531-585 | Baseline provides stable ~1.0 reference; Pearson r between standard Z and modified Z is >0.999 |
 
 ## 9. Known issues and blockers
 | # | Issue | Type (Issue / Blocker) | Status |
@@ -91,7 +91,7 @@ Record every experiment, including unsuccessful ones. Results must come from act
 | 5 | Only one documented failure in Set 2; evaluation will be a single-case study | Limitation | Accepted |
 
 ## 10. Next action
-**Prepare for Phase 6 — Statistical Baseline when ready.**
+**Prepare for Phase 7 — ML Model Development when ready.**
 
 ---
 
