@@ -11,10 +11,10 @@ Build a vibration-based condition-monitoring prototype for rolling-element beari
 Dataset and subset stay **provisional** until Phases 1-2 verify them. Full details: `PROJECT_CONTEXT.md`.
 
 ## 3. Current phase
-**Phase 7 Completed — ML Model Development.**
+**Phase 8 Completed — Evaluation.**
 
 ## 4. Overall progress checklist
-Progress: **7 of 11 phases completed**
+Progress: **8 of 11 phases completed**
 
 - [x] Phase 1: Dataset Documentation and Understanding
 - [x] Phase 2: Dataset Acquisition and Organization
@@ -23,7 +23,7 @@ Progress: **7 of 11 phases completed**
 - [x] Phase 5: Feature Engineering
 - [x] Phase 6: Statistical Baseline
 - [x] Phase 7: ML Model Development
-- [ ] Phase 8: Evaluation
+- [x] Phase 8: Evaluation
 - [ ] Phase 9: Model Improvement
 - [ ] Phase 10: Model Packaging
 - [ ] Phase 11: ML Completion and Integration Readiness
@@ -44,7 +44,7 @@ Status values: **Not Started**, **In Progress**, **Blocked**, **Completed**
 | 5 | Feature Engineering | Completed | 2026-09-26 | 2026-09-26 | Time & frequency domain utilities implemented in src/feature_extraction.py, unit tested, 984 snapshots extracted to features_set2.csv |
 | 6 | Statistical Baseline | Completed | 2026-09-28 | 2026-09-28 | Baseline module implemented in src/baseline.py (11/11 unit tests passed), 984 baseline scores exported, notebook & 3 reports completed |
 | 7 | ML Model Development | Completed | 2026-09-29 | 2026-09-29 | Modular pipelines (iForest & PCA) implemented in src/models.py, 4 unit tests passed, 984 model scores exported, notebook & audited report completed |
-| 8 | Evaluation | Not Started |  |  |  |
+| 8 | Evaluation | Completed | 2026-09-29 | 2026-09-29 | Modular evaluation module & tests implemented in src/evaluation.py (14/14 unit tests passed, 36/36 total passed), notebook & report written, 6 figures generated |
 | 9 | Model Improvement | Not Started |  |  |  |
 | 10 | Model Packaging | Not Started |  |  |  |
 | 11 | ML Completion and Integration Readiness | Not Started |  |  |  |
@@ -61,7 +61,7 @@ Add a row only after the file exists **and** you have checked it.
 | 5 | `ml-service/src/feature_extraction.py`, `ml-service/src/test_feature_extraction.py`, `ml-service/data/processed/features_set2.csv`, `ml-service/reports/feature_engineering_notes.md` | Unit test suite execution (7/7 passed), 984-file dataset extraction (984x40, 0 NaNs) & documentation |
 | 6 | `ml-service/src/baseline.py`, `ml-service/src/test_baseline.py`, `ml-service/data/processed/baseline_scores_set2.csv`, `ml-service/notebooks/04_statistical_baseline.ipynb`, `ml-service/reports/statistical_baseline_report.md`, `ml-service/reports/baseline_score_analysis.md`, `ml-service/reports/baseline_evaluation.md`, `ml-service/reports/figures/baseline/`, `ml-service/reports/figures/baseline_analysis/` | Unit test suite execution (11/11 passed), notebook execution (top-to-bottom clean run), dataset verification & user review |
 | 7 | `ml-service/src/models.py`, `ml-service/src/test_models.py`, `ml-service/data/processed/model_scores_set2.csv`, `ml-service/notebooks/05_model_development.ipynb`, `ml-service/reports/model_development.md`, `ml-service/reports/figures/models/` | Unit test suite execution (4/4 passed), dataset score export verification, technical audit & user approval |
-| 8 | *(none yet)* | |
+| 8 | `ml-service/reports/evaluation_protocol.md`, `ml-service/src/evaluation.py`, `ml-service/src/test_evaluation.py`, `ml-service/notebooks/06_evaluation.ipynb`, `ml-service/reports/evaluation_report.md`, `ml-service/reports/figures/evaluation/` | Unit test suite execution (14/14 passed), top-to-bottom notebook execution (nbconvert), 6 figure generation & report audit |
 | 9 | *(none yet)* | |
 | 10 | *(none yet)* | |
 | 11 | *(none yet)* | |
@@ -74,6 +74,7 @@ Add a row only after the file exists **and** you have checked it.
 | 2026-09-25 | Task: unsupervised anomaly detection | Provisional | No per-file labels exist; no RUL or failure-time claims |
 | 2026-09-28 | Chronological Baseline Partition | Provisional Reference | Baseline fitting (0–159), Reference evaluation (160–199), Sequential evaluation (200–983). Physical health status remains unverified hypothesis. |
 | 2026-09-29 | Per-Channel Unsupervised Anomaly Detection Pipelines | Confirmed | Isolation Forest and PCA Reconstruction Error implemented per channel (4 models each), fit strictly on snapshots 0–159, with validation thresholds derived from snapshots 160–199. |
+| 2026-09-29 | Persistence-Filtered Causal Evaluation Framework | Confirmed | Enforced frozen evaluation protocol, persistence filtering (k=3) eliminates 100% of reference false alarms, online confirmation timing separated from retrospective event starts. |
 
 ## 8. Experiment results
 Record every experiment, including unsuccessful ones. Results must come from actually running the code.
@@ -82,6 +83,7 @@ Record every experiment, including unsuccessful ones. Results must come from act
 |---|---|---|---|---|---|
 | EXP-01 | Phase 6 | Non-ML Statistical Baseline Scoring | 36 features, ref_end_idx=160, frozen baseline | `score_rms_z` mean=0.92 (fit), 0.97 (ref eval), 12.30 (seq eval); sustained run >3.0 starts at index 531-585 | Baseline provides stable ~1.0 reference; Pearson r between standard Z and modified Z is >0.999 |
 | EXP-02 | Phase 7 | Per-Channel Isolation Forest & PCA Anomaly Detection | 36 features (9 per channel), RobustScaler + iForest (n_est=100) / PCA (k=2), seed=42, fit 0..159, val 160..199 | Both models show sustained score elevation on ch1 starting at snapshot 532; ch2–ch4 exhibit elevated scores in second half due to mechanical shaft coupling | Per-channel models successfully track degradation trajectory; cross-channel shaft coupling documented without causal failure claims |
+| EXP-03 | Phase 8 | Persistence-Filtered (k=1..5) & Multi-Channel Evaluation | Baseline T=3.0, iForest/PCA validation P99 thresholds, k=1,3,5 | Persistence k=3 eliminates 100% of reference false alarms (R_FA=0.0%); iForest & PCA confirm ch1 alert at snapshot 534 (3.1 days lead); OR shaft alert confirmed at snapshot 349 (4.4 days lead) | Persistence filtering guarantees false-alarm suppression on baseline period while preserving early detection lead time |
 
 ## 9. Known issues and blockers
 | # | Issue | Type (Issue / Blocker) | Status |
@@ -93,7 +95,7 @@ Record every experiment, including unsuccessful ones. Results must come from act
 | 5 | Only one documented failure in Set 2; evaluation will be a single-case study | Limitation | Accepted |
 
 ## 10. Next action
-**Prepare for Phase 8 — Evaluation when ready.**
+**Prepare for Phase 9 — Model Improvement when ready.**
 
 ---
 
