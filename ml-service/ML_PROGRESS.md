@@ -11,10 +11,11 @@ Build a vibration-based condition-monitoring prototype for rolling-element beari
 Dataset and subset stay **provisional** until Phases 1-2 verify them. Full details: `PROJECT_CONTEXT.md`.
 
 ## 3. Current phase
-**Phase 8 Completed — Evaluation.**
+## 3. Current phase
+**Phase 9 Completed — Model Improvement.**
 
 ## 4. Overall progress checklist
-Progress: **8 of 11 phases completed**
+Progress: **9 of 11 phases completed**
 
 - [x] Phase 1: Dataset Documentation and Understanding
 - [x] Phase 2: Dataset Acquisition and Organization
@@ -24,13 +25,12 @@ Progress: **8 of 11 phases completed**
 - [x] Phase 6: Statistical Baseline
 - [x] Phase 7: ML Model Development
 - [x] Phase 8: Evaluation
-- [ ] Phase 9: Model Improvement
+- [x] Phase 9: Model Improvement
 - [ ] Phase 10: Model Packaging
 - [ ] Phase 11: ML Completion and Integration Readiness
 
 Pre-project setup (not a development phase):
-- [x] Python environment created and verified (Python 3.14.2, venv, core libraries installed)
-- [x] `PROJECT_CONTEXT.md`, `MachineMind_AI_ML_Prompt_Pack.md` and `ML_PROGRESS.md` saved in the repository
+- [x] Phase 0: Setup & Context Verification
 
 ## 5. Status of all 11 phases
 Status values: **Not Started**, **In Progress**, **Blocked**, **Completed**
@@ -45,7 +45,7 @@ Status values: **Not Started**, **In Progress**, **Blocked**, **Completed**
 | 6 | Statistical Baseline | Completed | 2026-09-28 | 2026-09-28 | Baseline module implemented in src/baseline.py (11/11 unit tests passed), 984 baseline scores exported, notebook & 3 reports completed |
 | 7 | ML Model Development | Completed | 2026-09-29 | 2026-09-29 | Modular pipelines (iForest & PCA) implemented in src/models.py, 4 unit tests passed, 984 model scores exported, notebook & audited report completed |
 | 8 | Evaluation | Completed | 2026-09-29 | 2026-09-29 | Modular evaluation module & tests implemented in src/evaluation.py (14/14 unit tests passed, 36/36 total passed), notebook & report written, 6 figures generated |
-| 9 | Model Improvement | Not Started |  |  |  |
+| 9 | Model Improvement | Completed | 2026-09-30 | 2026-09-30 | Executed EXP-04..EXP-12, reconciled audit, selected 28-feature set & Logical OR system alert policy, user approved final summary |
 | 10 | Model Packaging | Not Started |  |  |  |
 | 11 | ML Completion and Integration Readiness | Not Started |  |  |  |
 
@@ -62,7 +62,7 @@ Add a row only after the file exists **and** you have checked it.
 | 6 | `ml-service/src/baseline.py`, `ml-service/src/test_baseline.py`, `ml-service/data/processed/baseline_scores_set2.csv`, `ml-service/notebooks/04_statistical_baseline.ipynb`, `ml-service/reports/statistical_baseline_report.md`, `ml-service/reports/baseline_score_analysis.md`, `ml-service/reports/baseline_evaluation.md`, `ml-service/reports/figures/baseline/`, `ml-service/reports/figures/baseline_analysis/` | Unit test suite execution (11/11 passed), notebook execution (top-to-bottom clean run), dataset verification & user review |
 | 7 | `ml-service/src/models.py`, `ml-service/src/test_models.py`, `ml-service/data/processed/model_scores_set2.csv`, `ml-service/notebooks/05_model_development.ipynb`, `ml-service/reports/model_development.md`, `ml-service/reports/figures/models/` | Unit test suite execution (4/4 passed), dataset score export verification, technical audit & user approval |
 | 8 | `ml-service/reports/evaluation_protocol.md`, `ml-service/src/evaluation.py`, `ml-service/src/test_evaluation.py`, `ml-service/notebooks/06_evaluation.ipynb`, `ml-service/reports/evaluation_report.md`, `ml-service/reports/figures/evaluation/` | Unit test suite execution (14/14 passed), top-to-bottom notebook execution (nbconvert), 6 figure generation & report audit |
-| 9 | *(none yet)* | |
+| 9 | `ml-service/reports/experiment_log.md`, `ml-service/reports/improvement_summary.md`, `ml-service/notebooks/07_model_improvement.ipynb` | Controlled experiment suite execution (EXP-04..EXP-12), unit test suite execution (36/36 passed), top-to-bottom notebook execution, reconciliation audit & user approval |
 | 10 | *(none yet)* | |
 | 11 | *(none yet)* | |
 
@@ -75,6 +75,8 @@ Add a row only after the file exists **and** you have checked it.
 | 2026-09-28 | Chronological Baseline Partition | Provisional Reference | Baseline fitting (0–159), Reference evaluation (160–199), Sequential evaluation (200–983). Physical health status remains unverified hypothesis. |
 | 2026-09-29 | Per-Channel Unsupervised Anomaly Detection Pipelines | Confirmed | Isolation Forest and PCA Reconstruction Error implemented per channel (4 models each), fit strictly on snapshots 0–159, with validation thresholds derived from snapshots 160–199. |
 | 2026-09-29 | Persistence-Filtered Causal Evaluation Framework | Confirmed | Enforced frozen evaluation protocol, persistence filtering (k=3) eliminates 100% of reference false alarms, online confirmation timing separated from retrospective event starts. |
+| 2026-09-30 | 28-Feature Time-Domain Feature Set Selection | Confirmed | Selected 28-feature time-domain set per EXP-04 decision rule (0 sustained FAs, 25% lower raw noise sensitivity, 7 features/channel). |
+| 2026-09-30 | Logical OR System Alert Aggregation Policy | Confirmed | System alert active if ANY channel meets k=3 sustained threshold condition, preserving single-bearing defect sensitivity. |
 
 ## 8. Experiment results
 Record every experiment, including unsuccessful ones. Results must come from actually running the code.
@@ -84,6 +86,15 @@ Record every experiment, including unsuccessful ones. Results must come from act
 | EXP-01 | Phase 6 | Non-ML Statistical Baseline Scoring | 36 features, ref_end_idx=160, frozen baseline | `score_rms_z` mean=0.92 (fit), 0.97 (ref eval), 12.30 (seq eval); sustained run >3.0 starts at index 531-585 | Baseline provides stable ~1.0 reference; Pearson r between standard Z and modified Z is >0.999 |
 | EXP-02 | Phase 7 | Per-Channel Isolation Forest & PCA Anomaly Detection | 36 features (9 per channel), RobustScaler + iForest (n_est=100) / PCA (k=2), seed=42, fit 0..159, val 160..199 | Both models show sustained score elevation on ch1 starting at snapshot 532; ch2–ch4 exhibit elevated scores in second half due to mechanical shaft coupling | Per-channel models successfully track degradation trajectory; cross-channel shaft coupling documented without causal failure claims |
 | EXP-03 | Phase 8 | Persistence-Filtered (k=1..5) & Multi-Channel Evaluation | Baseline T=3.0, iForest/PCA validation P99 thresholds, k=1,3,5 | Persistence k=3 eliminates 100% of reference false alarms (R_FA=0.0%); iForest & PCA confirm ch1 alert at snapshot 534 (3.1 days lead); OR shaft alert confirmed at snapshot 349 (4.4 days lead) | Persistence filtering guarantees false-alarm suppression on baseline period while preserving early detection lead time |
+| EXP-04 | Phase 9 | Feature Set Ablation | Full 36 features vs Time-Domain 28 features, Fit 0..159, Cal 160..179, Diag 180..199 | Sustained FA (k=3) tied at 0/80; Raw FA reduced from 12/80 (36-feat) to 9/80 (28-feat) | 28-feature time-domain set selected per decision rule (25% noise reduction, feature parsimony) |
+| EXP-05 | Phase 9 | Feature Scaler Method | RobustScaler vs StandardScaler | Identical scores across all channels (max |delta s| = 0.0) | Isolation Forest tree split logic is rank-invariant to monotonic scaling; RobustScaler retained |
+| EXP-06 | Phase 9 | PCA Component Count | PCA k=1 vs k=2 vs k=3 components | Raw FA reduced to 3/80 (36-feat) / 4/80 (28-feat); Cal MSE reduced to 0.1525 (vs 0.2581 for k=2) | PCA k=3 accepted as improved component rank |
+| EXP-07 | Phase 9 | iForest Hyperparameter Grid | n_estimators in {50,100,200} x max_samples in {0.5,1.0,"auto"} | All 9 grid configurations achieved 0 sustained false alarms (k=3) | Retain control n_estimators=100, max_samples="auto" to avoid parameter churn |
+| EXP-08 | Phase 9 | Threshold Strategy | Fit mu+3s/4s vs Cal P99/P99.5/mu+3s | Cal P99 and P99.5 yielded identical cutoffs; Fit cutoffs overly conservative | Retain Cal P99 as non-parametric baseline threshold cutoff |
+| EXP-09 | Phase 9 | Persistence Filter | k=1 vs k=3 vs k=5 consecutive exceedances | k=3 and k=5 eliminated 100% of diagnostic FAs; k=3 requires 20 min delay vs 40 min for k=5 | Retain k=3 filter for optimal noise suppression vs latency trade-off |
+| EXP-10 | Phase 9 | Fit Window Sensitivity | N_fit=100 vs N_fit=160 | N_fit=160 provided lower raw noise sensitivity (12 vs 21 on 36-feat; 9 vs 12 on 28-feat) | N_fit=160 retained. Calibration windows differed (100..119 vs 160..179), introducing calibration shift |
+| EXP-11 | Phase 9 | Modeling Architecture | Per-Channel (4 models) vs Pooled (1 joint model) | Both achieved 0 sustained FAs. Per-channel raw FA 12/80 (36-feat) / 9/80 (28-feat); Pooled raw FA 5/20 / 3/20 | Retain per-channel modeling to preserve spatial bearing defect localization |
+| EXP-12 | Phase 9 | Master Synthesis & Alert Policy | Final pipeline selection & Logical OR system alert policy | Synthesized EXP-04..EXP-11, selected 28-feature set & Logical OR system alert rule | Final Phase 9 pipeline specified & user approved |
 
 ## 9. Known issues and blockers
 | # | Issue | Type (Issue / Blocker) | Status |
@@ -95,7 +106,7 @@ Record every experiment, including unsuccessful ones. Results must come from act
 | 5 | Only one documented failure in Set 2; evaluation will be a single-case study | Limitation | Accepted |
 
 ## 10. Next action
-**Prepare for Phase 9 — Model Improvement when ready.**
+**Prepare for Phase 10 — Model Packaging when ready.**
 
 ---
 

@@ -20,7 +20,7 @@ Key Design Rules:
 from typing import Dict, List, Tuple, Any, Optional, Union
 import numpy as np
 import pandas as pd
-from sklearn.preprocessing import RobustScaler
+from sklearn.preprocessing import RobustScaler, StandardScaler
 from sklearn.ensemble import IsolationForest
 from sklearn.decomposition import PCA
 
@@ -87,14 +87,24 @@ class AnomalyDetectionPipeline:
     def __init__(
         self,
         model_type: str = "iforest",
+        scaler_type: str = "robust",
         model_params: Optional[Dict[str, Any]] = None,
         random_state: int = DEFAULT_RANDOM_STATE,
     ):
         self.model_type = model_type.lower()
+        self.scaler_type = scaler_type.lower()
         self.random_state = random_state
         self.model_params = model_params or {}
         
-        self.scaler = RobustScaler()
+        if self.scaler_type == "robust":
+            self.scaler = RobustScaler()
+        elif self.scaler_type == "standard":
+            self.scaler = StandardScaler()
+        elif self.scaler_type == "none":
+            self.scaler = None
+        else:
+            raise ValueError(f"Unsupported scaler_type '{scaler_type}'. Choose 'robust', 'standard', or 'none'.")
+            
         self.is_fitted = False
         
         if self.model_type == "iforest":
@@ -120,7 +130,7 @@ class AnomalyDetectionPipeline:
         """
         Fit scaler and anomaly detection model strictly on training data.
         """
-        X_scaled = self.scaler.fit_transform(X)
+        X_scaled = self.scaler.fit_transform(X) if self.scaler is not None else X.copy()
         if self.model_type == "iforest":
             self.model.fit(X_scaled)
         elif self.model_type == "pca":
@@ -136,7 +146,7 @@ class AnomalyDetectionPipeline:
         if not self.is_fitted:
             raise RuntimeError("Pipeline must be fitted before computing anomaly scores.")
         
-        X_scaled = self.scaler.transform(X)
+        X_scaled = self.scaler.transform(X) if self.scaler is not None else X.copy()
         
         if self.model_type == "iforest":
             # decision_function: positive (~0.1..0.4) for inliers, negative (-0.4..0) for outliers.
