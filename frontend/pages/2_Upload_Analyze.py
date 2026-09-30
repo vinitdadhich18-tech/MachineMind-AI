@@ -7,6 +7,7 @@ from frontend.services.api_client import run_inference, list_machines, ApiError
 from frontend.utils.csv_validation import validate_snapshot_csv
 from frontend.components.status import render_status_badge, render_footer, DISCLAIMER_TEXT
 from frontend.components.channel_cards import render_channel_cards
+from frontend.components.charts import render_anomaly_score_chart, render_waveform_preview
 
 st.set_page_config(page_title="MachineMind AI — Upload & Analyze", page_icon="📈", layout="wide")
 
@@ -77,8 +78,9 @@ def main():
         else:
             st.success(f"✅ File pre-validated cleanly: **20,480 samples × 4 channels** ({filename})")
 
-            with st.expander("Preview snapshot data head & statistics", expanded=False):
-                st.dataframe(preview_df.head(10), use_container_width=True)
+            with st.expander("Preview waveform & statistics", expanded=True):
+                st.markdown("##### 4-Channel Raw Vibration Waveform (Downsampled)")
+                render_waveform_preview(preview_df)
                 if summary_details.get("channel_stats"):
                     st.write("**Per-Channel Raw Signal Bounds:**")
                     st.json(summary_details["channel_stats"])
@@ -113,7 +115,6 @@ def main():
 
         overall = last_result.get("overall", {})
         overall_state = overall.get("state", "normal")
-        overall_label = overall.get("label", "")
 
         render_status_badge(overall_state)
 
@@ -126,6 +127,9 @@ def main():
         channels = last_result.get("channels", [])
         req_k = last_result.get("persistence", {}).get("required_consecutive_snapshots", 3)
         render_channel_cards(channels, required_consecutive=req_k)
+
+        st.markdown("#### Score vs P99 Threshold Comparison")
+        render_anomaly_score_chart(channels)
 
         with st.expander("Full JSON API Payload Response", expanded=False):
             st.json(last_result)
