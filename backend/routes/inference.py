@@ -13,7 +13,9 @@ from backend.services.data_service import (
     parse_and_validate_snapshot_file,
     validate_json_snapshot_data
 )
+from backend.services.machine_service import get_machine
 from backend.services.ml_service import run_inference, is_model_loaded
+from backend.services.prediction_service import process_and_save_prediction
 
 inference_bp = Blueprint("inference", __name__)
 logger = logging.getLogger(__name__)
@@ -23,14 +25,14 @@ logger = logging.getLogger(__name__)
 def post_inference():
     """
     POST /api/inference
-    Validates upload or JSON payload -> runs ML inference -> responds with prediction record.
+    Validates upload or JSON payload -> runs ML inference -> saves prediction & updates machine status -> responds with prediction record.
 
     Accepts:
     1. multipart/form-data (file, machine_id, optional snapshot_time)
     2. application/json ({ machine_id, snapshot_time, data })
     """
     if not is_model_loaded():
-        raise APIError("MODEL_UNAVAILABLE", "ML inference model is loaded/unavailable.", status_code=503)
+        raise APIError("MODEL_UNAVAILABLE", "ML inference model is unavailable.", status_code=503)
 
     machine_id = None
     snapshot_time = None
@@ -70,12 +72,18 @@ def post_inference():
             status_code=415
         )
 
-    # Run inference pipeline
-    prediction_record = run_inference(
+    # Verify machine exists in DB
+    get_machine(machine_id)
+
+    # Run ML inference pipeline
+    raw_prediction = run_inference(
         machine_id=machine_id,
         snapshot=arr_snapshot,
         timestamp=snapshot_time,
         source_filename=source_filename
     )
 
-    return success_response(data=prediction_record, status_code=201)
+    # Save prediction to MongoDB, update machine status, and evaluate alerts
+    saved_prediction = process_and_save_prediction(raw_prediction)
+
+    return success_response(data=saved_prediction, status_code=201)

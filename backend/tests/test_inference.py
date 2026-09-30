@@ -3,11 +3,10 @@ test_inference.py - Integration and validation tests for POST /api/inference.
 """
 
 import io
-from pathlib import Path
 import pytest
 import numpy as np
 
-from backend.config import Config, BASE_DIR
+from backend.config import BASE_DIR
 
 # Locate a real NASA IMS snapshot file in the repository (read-only)
 REAL_SNAPSHOT_PATH = BASE_DIR / "ml-service" / "data" / "raw" / "IMS" / "2nd_test" / "2nd_test" / "2004.02.12.10.32.39"
@@ -18,6 +17,9 @@ def test_inference_with_real_nasa_snapshot_multipart(client):
     Tests POST /api/inference with a real NASA IMS bearing snapshot file via multipart form-data.
     """
     assert REAL_SNAPSHOT_PATH.exists(), f"Real NASA IMS snapshot missing at {REAL_SNAPSHOT_PATH}"
+
+    # 1. Create machine
+    client.post("/api/machines", json={"machine_id": "bearing_set2_rig1", "name": "Set 2 Rig 1"})
 
     with open(REAL_SNAPSHOT_PATH, "rb") as f:
         file_bytes = f.read()
@@ -47,7 +49,6 @@ def test_inference_with_real_nasa_snapshot_multipart(client):
     assert result["overall"]["state"] in ["normal", "watch", "anomaly_detected"]
     assert len(result["channels"]) == 4
 
-    # Confirm per-channel scores are valid positive floats
     for ch in result["channels"]:
         assert isinstance(ch["anomaly_score"], float)
         assert isinstance(ch["threshold"], float)
@@ -57,7 +58,9 @@ def test_inference_with_json_payload(client):
     """
     Tests POST /api/inference with a JSON payload containing a valid (20480, 4) numpy matrix.
     """
-    # Create valid zero snapshot
+    # 1. Create machine
+    client.post("/api/machines", json={"machine_id": "test_rig_json", "name": "Test Rig JSON"})
+
     matrix = np.zeros((20480, 4), dtype=float).tolist()
 
     json_data = {
@@ -81,6 +84,8 @@ def test_inference_validation_failures(client):
     """
     Verifies that invalid input formats return standard JSON error envelopes with proper status codes.
     """
+    client.post("/api/machines", json={"machine_id": "valid_id", "name": "Valid Rig"})
+
     # 1. Missing machine_id
     res1 = client.post("/api/inference", json={"data": []})
     assert res1.status_code == 400
@@ -94,7 +99,7 @@ def test_inference_validation_failures(client):
 
     # 3. Unsupported file type (.pdf)
     data_bad_ext = {
-        "machine_id": "test_id",
+        "machine_id": "valid_id",
         "file": (io.BytesIO(b"fake content"), "test.pdf")
     }
     res3 = client.post("/api/inference", data=data_bad_ext, content_type="multipart/form-data")

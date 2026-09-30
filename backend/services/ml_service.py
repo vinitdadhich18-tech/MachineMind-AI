@@ -81,11 +81,31 @@ def get_engine_for_machine(machine_id: str, model_type: str = "iforest") -> Any:
     if machine_id not in _machine_engines:
         from src.inference import AnomalyInferenceEngine
         logger.info(f"Creating new AnomalyInferenceEngine instance for machine_id='{machine_id}'")
-        _machine_engines[machine_id] = AnomalyInferenceEngine(
+        engine = AnomalyInferenceEngine(
             artifacts_dir=_model_dir,
             model_type=model_type,
             stateful=True
         )
+
+        # Attempt rehydrating consecutive exceedance counters from latest Mongo prediction
+        try:
+            from flask import current_app
+            from backend.utils.db import get_db
+            if current_app:
+                db = get_db(current_app.config["MONGO_URI"], current_app.config["DATABASE_NAME"])
+                if db is not None:
+                    latest_pred = db.predictions.find_one({"machine_id": machine_id}, sort=[("timestamp", -1)])
+                    if latest_pred and "channels" in latest_pred:
+                        for ch_info in latest_pred["channels"]:
+                            ch_num = ch_info.get("channel", 1)
+                            ch_key = f"ch{ch_num}"
+                            if ch_key in engine.consecutive_exceedances:
+                                engine.consecutive_exceedances[ch_key] = int(ch_info.get("consecutive_flagged_count", 0))
+                        logger.info(f"Rehydrated engine state for machine_id='{machine_id}': {engine.consecutive_exceedances}")
+        except Exception as e:
+            logger.debug(f"State rehydration skipped for machine_id='{machine_id}': {e}")
+
+        _machine_engines[machine_id] = engine
 
     return _machine_engines[machine_id]
 

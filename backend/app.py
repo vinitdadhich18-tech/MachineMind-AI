@@ -28,9 +28,20 @@ def create_app(config_class=Config) -> Flask:
     # Register blueprints with /api prefix
     from backend.routes.health import health_bp
     from backend.routes.inference import inference_bp
+    from backend.routes.machines import machines_bp
 
     app.register_blueprint(health_bp, url_prefix="/api")
     app.register_blueprint(inference_bp, url_prefix="/api")
+    app.register_blueprint(machines_bp, url_prefix="/api")
+
+    # Initialize DB indexes if DB is available
+    from backend.utils.db import get_db, init_db_indexes
+    try:
+        db = get_db(config_class.MONGO_URI, config_class.DATABASE_NAME)
+        if db is not None:
+            init_db_indexes(db)
+    except Exception as e:
+        logger.warning(f"Could not initialize DB indexes at startup: {e}")
 
     # Initialize ML service
     from backend.services.ml_service import init_ml_service, get_model_version
