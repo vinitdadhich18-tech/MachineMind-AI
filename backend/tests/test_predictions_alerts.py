@@ -1,14 +1,11 @@
 """
-test_predictions_alerts.py - Integration tests for prediction persistence, status updates, and alert rules.
+test_predictions_alerts.py - Integration tests for prediction history, alerts listing, filtering, and status updates.
 """
 
 import io
-from pathlib import Path
 import numpy as np
 
 from backend.config import BASE_DIR
-from backend.utils.db import set_test_db, get_db
-from flask import current_app
 
 REAL_SNAPSHOT_PATH = BASE_DIR / "ml-service" / "data" / "raw" / "IMS" / "2nd_test" / "2nd_test" / "2004.02.12.10.32.39"
 
@@ -74,7 +71,7 @@ def test_persistence_flow_and_alert_trigger(client, app):
     assert m3["status"] == "anomaly_detected"
     assert m3["open_alerts_count"] == 1
 
-    # Snapshot 4: subequent flagged snapshot -> alert NOT re-created (duplicate prevention)
+    # Snapshot 4: subsequent flagged snapshot -> alert NOT re-created (duplicate prevention)
     res4 = client.post(
         "/api/inference",
         data={"machine_id": "persistence_rig_01", "file": (io.BytesIO(file_bytes), "snap4.txt")},
@@ -92,3 +89,64 @@ def test_persistence_flow_and_alert_trigger(client, app):
         assert "data" not in doc
         assert "raw_snapshot" not in doc
         assert "signal" not in doc
+
+
+def test_prediction_history_endpoint(client):
+    """Verifies GET /api/predictions/<machine_id> pagination and parameters."""
+    client.post("/api/machines", json={"machine_id": "hist_rig", "name": "Hist Rig"})
+
+    # Submit 2 predictions using JSON payload
+    matrix = np.zeros((20480, 4), dtype=float).tolist()
+    client.post("/api/inference", json={"machine_id": "hist_rig", "data": matrix})
+    client.post("/api/inference", json={"machine_id": "hist_rig", "data": matrix})
+
+    res = client.get("/api/predictions/hist_rig?limit=10&offset=0")
+    assert res.status_code == 200
+    payload = res.get_json()["data"]
+
+    assert payload["machine_id"] == "hist_rig"
+    assert payload["total"] == 2
+    assert payload["count"] == 2
+    assert len(payload["predictions"]) == 2
+
+
+def test_alerts_endpoints_and_patch_status(client):
+    """Verifies GET /api/alerts, GET /api/alerts/<machine_id>, and PATCH /api/alerts/<alert_id>."""
+    client.post("/api/machines", json={"machine_id": "alert_rig", "name": "Alert Rig"})
+    with open(REAL_SNAPSHOT_PATH, "rb") as f:
+        file_bytes = f.read()
+
+    # Trigger 3 snapshots to create 1 alert
+    for i in range(3):
+        client.post(
+            "/api/inference",
+            data={"machine_id": "alert_rig", "file": (io.BytesIO(file_bytes), f"snap{i}.txt")},
+            content_type="multipart/form-data"
+        )
+
+    # 1. GET /api/alerts
+    res_alerts = client.get("/api/alerts?status=open")
+    assert res_alerts.status_code == 200
+    alerts_data = res_alerts.get_json()["data"]
+    assert alerts_data["total"] == 1
+    alert_item = alerts_data["alerts"][0]
+    assert alert_item["status"] == "open"
+    assert alert_item["machine_id"] == "alert_rig"
+    alert_id = alert_item["alert_id"]
+
+    # 2. GET /api/alerts/<machine_id>
+    res_m_alerts = client.get("/api/alerts/alert_rig")
+    assert res_m_alerts.status_code == 200
+    assert res_m_alerts.get_json()["data"]["count"] == 1
+
+    # 3. PATCH /api/alerts/<alert_id> to 'acknowledged'
+    res_patch = client.patch(f"/api/alerts/{alert_id}", json={"status": "acknowledged"})
+    assert res_patch.status_code == 200
+    assert res_patch.get_json()["data"]["status"] == "acknowledged"
+
+    # Verify status changed to acknowledged
+    res_open = client.get("/api/alerts?status=open")
+    assert res_open.get_json()["data"]["total"] == 0
+
+    res_ack = client.get("/api/alerts?status=acknowledged")
+    assert res_ack.get_json()["data"]["total"] == 1

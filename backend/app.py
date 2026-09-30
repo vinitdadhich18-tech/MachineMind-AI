@@ -29,10 +29,14 @@ def create_app(config_class=Config) -> Flask:
     from backend.routes.health import health_bp
     from backend.routes.inference import inference_bp
     from backend.routes.machines import machines_bp
+    from backend.routes.predictions import predictions_bp
+    from backend.routes.alerts import alerts_bp
 
     app.register_blueprint(health_bp, url_prefix="/api")
     app.register_blueprint(inference_bp, url_prefix="/api")
     app.register_blueprint(machines_bp, url_prefix="/api")
+    app.register_blueprint(predictions_bp, url_prefix="/api")
+    app.register_blueprint(alerts_bp, url_prefix="/api")
 
     # Initialize DB indexes if DB is available
     from backend.utils.db import get_db, init_db_indexes
