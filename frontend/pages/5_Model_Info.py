@@ -1,65 +1,121 @@
 """
-5_Model_Info.py - Model Architecture, Methodology, and Limitations Page.
+5_Model_Info.py - Technical Model Specification & Engineering Architecture Panel.
 """
 
 import streamlit as st
 from frontend.services.api_client import get_health, ApiError
-from frontend.components.status import render_footer, DISCLAIMER_TEXT
+from frontend.components.theme import inject_theme
+from frontend.components.status import (
+    render_global_header,
+    render_sidebar_shell,
+    render_status_badge,
+    render_footer,
+    DISCLAIMER_TEXT
+)
 
 st.set_page_config(page_title="MachineMind AI — Model Info", page_icon="ℹ️", layout="wide")
 
 
 def main():
-    st.title("ℹ️ ML Pipeline Architecture & Model Card")
-    st.caption(DISCLAIMER_TEXT)
-    st.markdown("---")
+    inject_theme()
 
-    # Fetch backend model version
+    # Fetch backend health
     try:
         health = get_health()
+        render_sidebar_shell(health)
         model_info = health.get("model", {})
-        st.success(f"🟢 **Backend Model Service Active:** Version `{model_info.get('version', 'v1')}` | Loaded: `{model_info.get('loaded')}`")
+        version_str = model_info.get('version', 'v1')
+        loaded_str = "LOADED" if model_info.get('loaded') else "NOT LOADED"
     except ApiError:
-        st.warning("⚠️ Backend service currently unreachable.")
+        version_str = "v1"
+        loaded_str = "SERVICE OFFLINE"
 
-    st.markdown("### Technical Methodology & Pipeline Summary")
+    render_global_header("MODEL SPECIFICATION & ENGINEERING ARCHITECTURE")
 
-    with st.expander("1. Purpose & Boundary Scope", expanded=True):
-        st.markdown(
-            "- **Scientific Purpose:** Unsupervised statistical vibration anomaly detection for rotating machinery.\n"
-            "- **Evaluation Dataset:** NASA IMS Bearing Dataset (Set 2).\n"
-            "- **System Boundary:** Detects statistical exceedance from healthy baseline behavior. "
-            "It does **not** predict remaining useful life (RUL), predict physical failures, or classify fault types."
-        )
+    st.markdown(
+        f"""
+        <div class="ctrl-panel" style="display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 0.95rem; font-weight: 800; color: #F1F5F9;">
+                ENGINEERING SPECIFICATION: <span style="color: #00E5FF;">iforest_pipeline_{version_str}.joblib</span>
+            </span>
+            <div>
+                <span class="pill-normal">MODEL {version_str}</span>
+                <span class="pill-normal" style="margin-left: 6px;">{loaded_str}</span>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
-    with st.expander("2. Input Specifications & Feature Extraction", expanded=True):
-        st.markdown(
-            "- **Input Shape:** One raw 1-second vibration snapshot = `20,480 samples × 4 channels`.\n"
-            "- **Preprocessing:** DC mean-centering per channel.\n"
-            "- **28 Time-Domain Features (7 per channel):** Mean, Standard Deviation, RMS, Peak-to-Peak, Skewness, Kurtosis, Crest Factor.\n"
-            "- **Scaling:** `RobustScaler` (fit on healthy baseline snapshots 0–159)."
-        )
+    st.markdown("<div style='font-size: 0.85rem; font-weight: 700; color: #F1F5F9; letter-spacing: 0.04em; margin-bottom: 8px;'>1. TECHNICAL SPECIFICATIONS TABLE</div>", unsafe_allow_html=True)
+    
+    spec_table = [
+        {"PARAMETER": "PRIMARY TASK", "SPECIFICATION": "Unsupervised statistical vibration anomaly detection", "DETAILS": "Exceedance from healthy baseline window"},
+        {"PARAMETER": "INPUT MATRIX", "SPECIFICATION": "20,480 samples × 4 channels", "DETAILS": "1-Second snapshot sampled at 20 kHz"},
+        {"PARAMETER": "PREPROCESSING", "SPECIFICATION": "DC Mean-Centering per channel", "DETAILS": "Signal DC bias removal prior to extraction"},
+        {"PARAMETER": "FEATURE EXTRACTION", "SPECIFICATION": "28 Time-Domain Features (7 per channel)", "DETAILS": "Mean, Std, RMS, Peak-to-Peak, Skewness, Kurtosis, Crest Factor"},
+        {"PARAMETER": "FEATURE SCALING", "SPECIFICATION": "RobustScaler", "DETAILS": "Fit strictly on healthy baseline snapshots 0–159"},
+        {"PARAMETER": "PRIMARY MODEL", "SPECIFICATION": "Isolation Forest (n_estimators=100)", "DETAILS": "Random forest anomaly isolation scoring"},
+        {"PARAMETER": "ALTERNATIVE ENGINE", "SPECIFICATION": "PCA Reconstruction Error (n_components=3)", "DETAILS": "Dimensionality reduction reconstruction residual"},
+        {"PARAMETER": "THRESHOLD CALIBRATION", "SPECIFICATION": "P99 Empirical Quantile Threshold", "DETAILS": "Non-parametric threshold fit on validation window 160–179"},
+        {"PARAMETER": "PERSISTENCE RULE", "SPECIFICATION": "3 Consecutive Snapshots (N ≥ 3)", "DETAILS": "Eliminates single snapshot transient noise false-positives"},
+        {"PARAMETER": "ALERT AGGREGATION", "SPECIFICATION": "Logical OR Policy", "DETAILS": "Triggered if any channel satisfies N ≥ 3 persistence"}
+    ]
 
-    with st.expander("3. ML Algorithms & Threshold Calibration", expanded=True):
-        st.markdown(
-            "- **Primary Engine:** Isolation Forest (`n_estimators=100`, `max_samples='auto'`, `random_state=42`).\n"
-            "- **Alternative Engine:** PCA Reconstruction Error (`n_components=3`, `random_state=42`).\n"
-            "- **Threshold Calibration:** P99 non-parametric empirical quantile threshold, calibrated on healthy validation window (snapshots 160–179)."
-        )
+    st.dataframe(spec_table, use_container_width=True, hide_index=True)
 
-    with st.expander("4. Decision Logic & Persistence Rule", expanded=True):
-        st.markdown(
-            "- **3-Snapshot Persistence Rule:** Single snapshot exceedances are tagged as `watch` state. "
-            "An anomaly is confirmed (`anomaly_detected`) **only** when a channel score exceeds threshold for **3 consecutive snapshots**.\n"
-            "- **Multi-Channel Aggregation:** Logical OR policy across the 4 channels. If any channel confirms persistence, the overall system reports `Vibration anomaly detected`."
-        )
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("<div style='font-size: 0.85rem; font-weight: 700; color: #F1F5F9; letter-spacing: 0.04em; margin-bottom: 8px;'>2. HORIZONTAL PIPELINE FLOW ARCHITECTURE</div>", unsafe_allow_html=True)
+    st.markdown(
+        """
+        <div class="ctrl-panel" style="padding: 16px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; text-align: center; font-size: 0.75rem; font-weight: 700;">
+                <div style="background:#07090E; border:1px solid #1C2436; padding:8px 12px; border-radius:3px; color:#00E5FF;">
+                    RAW SIGNAL<br><span style="font-size:0.65rem; color:#64748B;">20,480 × 4</span>
+                </div>
+                <div style="color:#64748B;">→</div>
+                <div style="background:#07090E; border:1px solid #1C2436; padding:8px 12px; border-radius:3px; color:#10B981;">
+                    DC CENTER<br><span style="font-size:0.65rem; color:#64748B;">Mean Removed</span>
+                </div>
+                <div style="color:#64748B;">→</div>
+                <div style="background:#07090E; border:1px solid #1C2436; padding:8px 12px; border-radius:3px; color:#3B82F6;">
+                    FEATURES<br><span style="font-size:0.65rem; color:#64748B;">28 Time Domain</span>
+                </div>
+                <div style="color:#64748B;">→</div>
+                <div style="background:#07090E; border:1px solid #1C2436; padding:8px 12px; border-radius:3px; color:#F59E0B;">
+                    ROBUST SCALE<br><span style="font-size:0.65rem; color:#64748B;">Baseline Scale</span>
+                </div>
+                <div style="color:#64748B;">→</div>
+                <div style="background:#07090E; border:1px solid #1C2436; padding:8px 12px; border-radius:3px; color:#00E5FF;">
+                    ISOLATION FOREST<br><span style="font-size:0.65rem; color:#64748B;">Anomaly Scoring</span>
+                </div>
+                <div style="color:#64748B;">→</div>
+                <div style="background:#07090E; border:1px solid #1C2436; padding:8px 12px; border-radius:3px; color:#F59E0B;">
+                    P99 THRESHOLD<br><span style="font-size:0.65rem; color:#64748B;">Exceedance</span>
+                </div>
+                <div style="color:#64748B;">→</div>
+                <div style="background:#07090E; border:1px solid #1C2436; padding:8px 12px; border-radius:3px; color:#EF4444;">
+                    3x PERSISTENCE<br><span style="font-size:0.65rem; color:#64748B;">SYSTEM ALERT</span>
+                </div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
-    with st.expander("5. System Limitations & Disclaimer", expanded=False):
-        st.markdown(
-            "- **Research Dataset Scope:** Trained and calibrated specifically on the NASA IMS bearing test rig.\n"
-            "- **Statistical Anomaly $\\neq$ Physical Fault:** Exceeding a statistical threshold indicates unusual vibration behavior relative to baseline, not necessarily irreversible physical damage.\n"
-            "- **Not Certified:** This application is an educational/research learning prototype, not an industrially certified predictive maintenance system."
-        )
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("<div style='font-size: 0.85rem; font-weight: 700; color: #F1F5F9; letter-spacing: 0.04em; margin-bottom: 8px;'>3. SCIENTIFIC BOUNDARY DISCLOSURE</div>", unsafe_allow_html=True)
+    st.markdown(
+        """
+        <div class="ctrl-panel" style="font-size: 0.78rem; color: #94A3B8; line-height: 1.5; border-left: 3px solid #00E5FF;">
+            <strong>Research Prototype Scope (NASA IMS Bearing Dataset - Set 2):</strong><br>
+            • System detects statistical anomaly exceedances relative to healthy baseline vibration behavior.<br>
+            • Does <em>not</em> predict remaining useful life (RUL), calculate time-to-failure, or classify physical bearing fault modes.<br>
+            • Provided strictly as an educational / research presentation prototype.
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
     render_footer()
 

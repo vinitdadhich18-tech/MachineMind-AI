@@ -21,7 +21,7 @@ def create_alert_doc(
     severity = "high" if len(affected_channels) >= 2 else "warning"
 
     ch_str = ", ".join(f"Channel {ch}" for ch in sorted(affected_channels))
-    msg = f"Potential abnormal vibration pattern: {ch_str} anomaly score exceeded threshold for 3 consecutive snapshots."
+    msg = f"Confirmed abnormal vibration pattern: {ch_str} anomaly score exceeded threshold for 3 consecutive snapshots."
 
     return {
         "alert_id": str(uuid.uuid4()),

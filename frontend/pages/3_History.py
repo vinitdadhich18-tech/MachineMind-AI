@@ -1,47 +1,55 @@
 """
-3_History.py - Prediction History & Time-Series Score Visualization Page.
+3_History.py - Prediction History & Score Trends Console.
 """
 
 import streamlit as st
-from frontend.services.api_client import list_machines, get_predictions, ApiError
-from frontend.components.status import render_status_badge, render_footer, DISCLAIMER_TEXT
+from frontend.services.api_client import list_machines, get_predictions, get_health, ApiError
+from frontend.components.theme import inject_theme
+from frontend.components.status import (
+    render_global_header,
+    render_sidebar_shell,
+    render_status_badge,
+    render_footer
+)
 from frontend.components.charts import render_history_chart
+from frontend.utils.formatting import format_timestamp
 
 st.set_page_config(page_title="MachineMind AI — History", page_icon="📜", layout="wide")
 
 
 def main():
-    st.title("📜 Prediction History & Score Trends")
-    st.caption(DISCLAIMER_TEXT)
-    st.markdown("---")
+    inject_theme()
 
     try:
+        health = get_health()
+        render_sidebar_shell(health)
         machines = list_machines()
     except ApiError as err:
-        st.error(f"⚠️ Backend connection issue: {err.message}")
+        st.error(f"Backend Connection Error: {err.message}")
         st.stop()
 
     if not machines:
-        st.warning("No machines registered yet. Please create a machine first.")
-        st.stop()
+        render_global_header("NO MACHINERY REGISTERED")
+        st.warning("No machines found.")
+        render_footer()
+        return
 
     machine_ids = [m["machine_id"] for m in machines]
     selected_id = st.session_state.get("selected_machine_id")
-
     if selected_id not in machine_ids:
         selected_id = machine_ids[0]
         st.session_state["selected_machine_id"] = selected_id
 
-    st.sidebar.markdown("### 🏭 Selected Machine")
+    # Sidebar Selection & Depth Slider
     selected_id = st.sidebar.selectbox(
-        "Machine ID",
+        "MONITORED EQUIPMENT",
         options=machine_ids,
         index=machine_ids.index(selected_id),
         key="history_machine_select"
     )
     st.session_state["selected_machine_id"] = selected_id
 
-    limit = st.slider("History Depth (Max Snapshots)", min_value=10, max_value=200, value=50, step=10)
+    limit = st.sidebar.slider("TELEMETRY DEPTH (SNAPSHOTS)", min_value=10, max_value=200, value=50, step=10)
 
     try:
         data = get_predictions(selected_id, limit=limit)
@@ -52,34 +60,41 @@ def main():
     predictions = data.get("predictions", [])
     total_count = data.get("total", 0)
 
-    st.subheader(f"History for `{selected_id}` ({len(predictions)} shown / {total_count} total)")
+    active_m = next((m for m in machines if m["machine_id"] == selected_id), machines[0])
+    render_global_header(active_machine_id=active_m.get("name", selected_id))
+
+    st.markdown(
+        f"""
+        <div style="font-size: 0.85rem; font-weight: 700; color: #F1F5F9; letter-spacing: 0.04em; margin-bottom: 8px;">
+            FULL-WIDTH ANOMALY SCORE TELEMETRY TIMELINE ({len(predictions)} displayed / {total_count} total)
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
     if not predictions:
-        st.info("No prediction history recorded for this machine yet. Upload a snapshot on **2_Upload_Analyze** to begin.")
+        st.info("No historical telemetry recorded for this machine yet.")
     else:
-        st.markdown("#### Per-Channel Anomaly Score Trend Over Time")
-        # Reverse predictions list for chronological left-to-right plotting
+        # 1. Full-Width Anomaly Score Timeline Chart
         render_history_chart(list(reversed(predictions)))
 
-        st.markdown("#### Detailed Prediction Records")
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown("<div style='font-size: 0.85rem; font-weight: 700; color: #F1F5F9; letter-spacing: 0.04em; margin-bottom: 8px;'>TELEMETRY RECORD LOG TABLE</div>", unsafe_allow_html=True)
+
         table_rows = []
         for pred in predictions:
             row = {
-                "Timestamp": pred.get("timestamp", "")[:19],
+                "Dataset Snapshot Time": format_timestamp(pred.get("timestamp")),
+                "System State": pred.get("overall", {}).get("state", "no_data").upper(),
                 "Overall Label": pred.get("overall", {}).get("label"),
-                "State": pred.get("overall", {}).get("state"),
                 "Filename": pred.get("source_filename", "N/A"),
-                "Model Version": pred.get("model_version", "v1")
             }
-            # Add per channel score and flag columns
             for ch in pred.get("channels", []):
                 ch_idx = ch.get("channel")
-                row[f"Ch{ch_idx} Score"] = f"{ch.get('anomaly_score', 0.0):.4f}"
-                row[f"Ch{ch_idx} Flag"] = "🚩" if ch.get("snapshot_flagged") else "✅"
-
+                row[f"CH{ch_idx}"] = f"{ch.get('anomaly_score', 0.0):.4f}"
             table_rows.append(row)
 
-        st.dataframe(table_rows, use_container_width=True)
+        st.dataframe(table_rows, use_container_width=True, hide_index=True)
 
     render_footer()
 

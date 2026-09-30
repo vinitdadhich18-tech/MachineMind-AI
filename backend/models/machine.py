@@ -37,6 +37,9 @@ def serialize_machine(doc: Dict[str, Any], latest_prediction: Optional[Dict[str,
         res["latest_prediction"] = {
             "prediction_id": latest_prediction.get("prediction_id"),
             "timestamp": latest_prediction.get("timestamp"),
-            "overall": latest_prediction.get("overall")
+            "overall": latest_prediction.get("overall"),
+            "channels": latest_prediction.get("channels", []),
+            "persistence": latest_prediction.get("persistence", {"required_consecutive_snapshots": 3})
         }
     return res
+
