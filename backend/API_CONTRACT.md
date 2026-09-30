@@ -420,3 +420,29 @@ Every endpoint returns a consistent JSON envelope with top-level keys `success`,
   "error": null
 }
 ```
+
+---
+
+### 4.10 Validate Upload File (Validate-Only) — `POST /api/data/upload`
+
+**Description:** Parses and validates a raw snapshot file without executing ML inference or storing records. Returns file shape and per-channel summary statistics (`min`, `max`, `mean`, `std`).
+
+**Response (`200 OK`):**
+```json
+{
+  "success": true,
+  "data": {
+    "filename": "2004.02.12.10.32.39",
+    "rows": 20480,
+    "columns": 4,
+    "valid": true,
+    "channel_summary": [
+      { "channel": 1, "min": -0.892, "max": 0.841, "mean": -0.0001, "std": 0.123 },
+      { "channel": 2, "min": -0.765, "max": 0.789, "mean": -0.0002, "std": 0.115 },
+      { "channel": 3, "min": -0.912, "max": 0.901, "mean": -0.0001, "std": 0.134 },
+      { "channel": 4, "min": -0.654, "max": 0.678, "mean": -0.0001, "std": 0.108 }
+    ]
+  },
+  "error": null
+}
+```
