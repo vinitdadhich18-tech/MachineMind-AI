@@ -9,13 +9,11 @@ MachineMind AI
 Build a vibration-based condition-monitoring prototype for rolling-element bearings using **unsupervised anomaly detection** on the NASA IMS Bearing Dataset (provisional subset: **Set 2**). The model outputs an anomaly score and an alert. It must **not** claim to predict failure time or remaining useful life.
 
 Dataset and subset stay **provisional** until Phases 1-2 verify them. Full details: `PROJECT_CONTEXT.md`.
-
 ## 3. Current phase
-## 3. Current phase
-**Phase 9 Completed — Model Improvement.**
+**Phase 10 Completed — Model Packaging.**
 
 ## 4. Overall progress checklist
-Progress: **9 of 11 phases completed**
+Progress: **10 of 11 phases completed**
 
 - [x] Phase 1: Dataset Documentation and Understanding
 - [x] Phase 2: Dataset Acquisition and Organization
@@ -26,7 +24,7 @@ Progress: **9 of 11 phases completed**
 - [x] Phase 7: ML Model Development
 - [x] Phase 8: Evaluation
 - [x] Phase 9: Model Improvement
-- [ ] Phase 10: Model Packaging
+- [x] Phase 10: Model Packaging
 - [ ] Phase 11: ML Completion and Integration Readiness
 
 Pre-project setup (not a development phase):
@@ -46,7 +44,7 @@ Status values: **Not Started**, **In Progress**, **Blocked**, **Completed**
 | 7 | ML Model Development | Completed | 2026-09-29 | 2026-09-29 | Modular pipelines (iForest & PCA) implemented in src/models.py, 4 unit tests passed, 984 model scores exported, notebook & audited report completed |
 | 8 | Evaluation | Completed | 2026-09-29 | 2026-09-29 | Modular evaluation module & tests implemented in src/evaluation.py (14/14 unit tests passed, 36/36 total passed), notebook & report written, 6 figures generated |
 | 9 | Model Improvement | Completed | 2026-09-30 | 2026-09-30 | Executed EXP-04..EXP-12, reconciled audit, selected 28-feature set & Logical OR system alert policy, user approved final summary |
-| 10 | Model Packaging | Not Started |  |  |  |
+| 10 | Model Packaging | Completed | 2026-09-30 | 2026-09-30 | Packaged iForest & PCA pipelines (28 time-domain feats), created model_metadata.json, implemented src/export_models.py & src/inference.py, 56/56 tests passed, verified reference consistency (IF max diff 0.00e+00, PCA 1.77e-14), executed notebook 08 & written model_card.md |
 | 11 | ML Completion and Integration Readiness | Not Started |  |  |  |
 
 ## 6. Completed deliverables
@@ -63,7 +61,7 @@ Add a row only after the file exists **and** you have checked it.
 | 7 | `ml-service/src/models.py`, `ml-service/src/test_models.py`, `ml-service/data/processed/model_scores_set2.csv`, `ml-service/notebooks/05_model_development.ipynb`, `ml-service/reports/model_development.md`, `ml-service/reports/figures/models/` | Unit test suite execution (4/4 passed), dataset score export verification, technical audit & user approval |
 | 8 | `ml-service/reports/evaluation_protocol.md`, `ml-service/src/evaluation.py`, `ml-service/src/test_evaluation.py`, `ml-service/notebooks/06_evaluation.ipynb`, `ml-service/reports/evaluation_report.md`, `ml-service/reports/figures/evaluation/` | Unit test suite execution (14/14 passed), top-to-bottom notebook execution (nbconvert), 6 figure generation & report audit |
 | 9 | `ml-service/reports/experiment_log.md`, `ml-service/reports/improvement_summary.md`, `ml-service/notebooks/07_model_improvement.ipynb` | Controlled experiment suite execution (EXP-04..EXP-12), unit test suite execution (36/36 passed), top-to-bottom notebook execution, reconciliation audit & user approval |
-| 10 | *(none yet)* | |
+| 10 | `ml-service/src/export_models.py`, `ml-service/src/test_export_models.py`, `ml-service/src/inference.py`, `ml-service/src/test_inference.py`, `ml-service/models/model_metadata.json`, `ml-service/models/iforest_pipeline_v1.joblib`, `ml-service/models/pca_pipeline_v1.joblib`, `ml-service/notebooks/08_inference_check.ipynb`, `ml-service/reports/model_card.md` | Full unit test suite execution (56/56 passed), reference numerical consistency check (IF max diff 0.00e+00, PCA 1.77e-14 <= 1e-5), top-to-bottom notebook execution (nbconvert clean), fresh process artifact loading & audit |
 | 11 | *(none yet)* | |
 
 ## 7. Important decisions
@@ -77,6 +75,7 @@ Add a row only after the file exists **and** you have checked it.
 | 2026-09-29 | Persistence-Filtered Causal Evaluation Framework | Confirmed | Enforced frozen evaluation protocol, persistence filtering (k=3) eliminates 100% of reference false alarms, online confirmation timing separated from retrospective event starts. |
 | 2026-09-30 | 28-Feature Time-Domain Feature Set Selection | Confirmed | Selected 28-feature time-domain set per EXP-04 decision rule (0 sustained FAs, 25% lower raw noise sensitivity, 7 features/channel). |
 | 2026-09-30 | Logical OR System Alert Aggregation Policy | Confirmed | System alert active if ANY channel meets k=3 sustained threshold condition, preserving single-bearing defect sensitivity. |
+| 2026-09-30 | Versioned Model Packaging & AnomalyInferenceEngine Interface | Confirmed | Packaged fitted scalers & models into versioned joblib artifacts (`iforest_pipeline_v1.joblib`, `pca_pipeline_v1.joblib`) with human-readable `model_metadata.json` and a stateful $k=3$ persistence inference engine. |
 
 ## 8. Experiment results
 Record every experiment, including unsuccessful ones. Results must come from actually running the code.
@@ -87,7 +86,7 @@ Record every experiment, including unsuccessful ones. Results must come from act
 | EXP-02 | Phase 7 | Per-Channel Isolation Forest & PCA Anomaly Detection | 36 features (9 per channel), RobustScaler + iForest (n_est=100) / PCA (k=2), seed=42, fit 0..159, val 160..199 | Both models show sustained score elevation on ch1 starting at snapshot 532; ch2–ch4 exhibit elevated scores in second half due to mechanical shaft coupling | Per-channel models successfully track degradation trajectory; cross-channel shaft coupling documented without causal failure claims |
 | EXP-03 | Phase 8 | Persistence-Filtered (k=1..5) & Multi-Channel Evaluation | Baseline T=3.0, iForest/PCA validation P99 thresholds, k=1,3,5 | Persistence k=3 eliminates 100% of reference false alarms (R_FA=0.0%); iForest & PCA confirm ch1 alert at snapshot 534 (3.1 days lead); OR shaft alert confirmed at snapshot 349 (4.4 days lead) | Persistence filtering guarantees false-alarm suppression on baseline period while preserving early detection lead time |
 | EXP-04 | Phase 9 | Feature Set Ablation | Full 36 features vs Time-Domain 28 features, Fit 0..159, Cal 160..179, Diag 180..199 | Sustained FA (k=3) tied at 0/80; Raw FA reduced from 12/80 (36-feat) to 9/80 (28-feat) | 28-feature time-domain set selected per decision rule (25% noise reduction, feature parsimony) |
-| EXP-05 | Phase 9 | Feature Scaler Method | RobustScaler vs StandardScaler | Identical scores across all channels (max |delta s| = 0.0) | Isolation Forest tree split logic is rank-invariant to monotonic scaling; RobustScaler retained |
+| EXP-05 | Phase 9 | Feature Scaler Method | RobustScaler vs StandardScaler | Identical scores across all channels (max \|delta s\| = 0.0) | Isolation Forest tree split logic is rank-invariant to monotonic scaling; RobustScaler retained |
 | EXP-06 | Phase 9 | PCA Component Count | PCA k=1 vs k=2 vs k=3 components | Raw FA reduced to 3/80 (36-feat) / 4/80 (28-feat); Cal MSE reduced to 0.1525 (vs 0.2581 for k=2) | PCA k=3 accepted as improved component rank |
 | EXP-07 | Phase 9 | iForest Hyperparameter Grid | n_estimators in {50,100,200} x max_samples in {0.5,1.0,"auto"} | All 9 grid configurations achieved 0 sustained false alarms (k=3) | Retain control n_estimators=100, max_samples="auto" to avoid parameter churn |
 | EXP-08 | Phase 9 | Threshold Strategy | Fit mu+3s/4s vs Cal P99/P99.5/mu+3s | Cal P99 and P99.5 yielded identical cutoffs; Fit cutoffs overly conservative | Retain Cal P99 as non-parametric baseline threshold cutoff |
@@ -106,7 +105,8 @@ Record every experiment, including unsuccessful ones. Results must come from act
 | 5 | Only one documented failure in Set 2; evaluation will be a single-case study | Limitation | Accepted |
 
 ## 10. Next action
-**Prepare for Phase 10 — Model Packaging when ready.**
+**Prepare for Phase 11 — ML Completion and Integration Readiness when ready.**
+
 
 ---
 
