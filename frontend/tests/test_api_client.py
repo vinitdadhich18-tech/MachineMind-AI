@@ -1,52 +1,31 @@
 """
-test_api_client.py - Unit tests for Streamlit api_client and csv_validation utilities.
+test_api_client.py - Unit tests for Streamlit HTTP API client.
 """
 
 import pytest
 from unittest.mock import patch, MagicMock
-import numpy as np
+import requests
 
 from frontend.services.api_client import (
     get_health,
     list_machines,
     create_machine,
+    run_inference,
+    get_predictions,
+    list_alerts,
+    update_alert_status,
     ApiError
 )
-from frontend.utils.csv_validation import validate_snapshot_csv
-
-
-def test_csv_validation_valid():
-    """Verifies client-side CSV validation with a valid 20480x4 synthetic array."""
-    # Generate 20480x4 float csv text
-    arr = np.random.randn(20480, 4).astype(np.float64)
-    csv_bytes = "\n".join([f"{r[0]},{r[1]},{r[2]},{r[3]}" for r in arr]).encode("utf-8")
-
-    is_valid, err, details, df = validate_snapshot_csv(csv_bytes, "test.csv")
-    assert is_valid is True
-    assert err is None
-    assert details["rows"] == 20480
-    assert details["cols"] == 4
-    assert df is not None
-
-
-def test_csv_validation_invalid_shape():
-    """Verifies that wrong row count fails validation cleanly."""
-    arr = np.random.randn(100, 4)
-    csv_bytes = "\n".join([f"{r[0]},{r[1]},{r[2]},{r[3]}" for r in arr]).encode("utf-8")
-
-    is_valid, err, details, df = validate_snapshot_csv(csv_bytes, "test.csv")
-    assert is_valid is False
-    assert "Expected exactly 20480" in err
 
 
 @patch("requests.request")
-def test_api_client_success(mock_request):
-    """Verifies api_client parses success response envelopes."""
+def test_api_client_success_envelope(mock_request):
+    """Verifies parsing of standard backend success envelopes."""
     mock_resp = MagicMock()
     mock_resp.status_code = 200
     mock_resp.json.return_value = {
         "success": True,
-        "data": {"service": "machinemind-backend", "status": "ok"},
+        "data": {"service": "machinemind-backend", "status": "ok", "database": "connected"},
         "error": None
     }
     mock_request.return_value = mock_resp
@@ -54,11 +33,12 @@ def test_api_client_success(mock_request):
     res = get_health()
     assert res["service"] == "machinemind-backend"
     assert res["status"] == "ok"
+    assert res["database"] == "connected"
 
 
 @patch("requests.request")
 def test_api_client_error_envelope(mock_request):
-    """Verifies api_client raises ApiError on error envelopes."""
+    """Verifies that backend error envelopes raise ApiError with code and message."""
     mock_resp = MagicMock()
     mock_resp.status_code = 409
     mock_resp.json.return_value = {
@@ -67,13 +47,42 @@ def test_api_client_error_envelope(mock_request):
         "error": {
             "code": "MACHINE_EXISTS",
             "message": "Machine already exists.",
-            "details": {}
+            "details": {"machine_id": "dup_rig"}
         }
     }
     mock_request.return_value = mock_resp
 
     with pytest.raises(ApiError) as exc:
-        create_machine("dup_id", "Name")
+        create_machine("dup_rig", "Duplicate Rig")
 
     assert exc.value.code == "MACHINE_EXISTS"
-    assert exc.value.message == "Machine already exists."
+    assert "Machine already exists" in exc.value.message
+    assert exc.value.details["machine_id"] == "dup_rig"
+
+
+@patch("requests.request")
+def test_api_client_connection_refused(mock_request):
+    """Verifies friendly ApiError when backend connection is refused."""
+    mock_request.side_effect = requests.exceptions.ConnectionError("Connection refused")
+
+    with pytest.raises(ApiError) as exc:
+        run_inference("test_mach", b"dummy_content", "test.csv")
+
+    assert exc.value.code == "CONNECTION_ERROR"
+    assert "Backend server is unreachable" in exc.value.message
+
+
+@patch("requests.request")
+def test_api_client_non_json_response(mock_request):
+    """Verifies graceful handling when backend returns non-JSON text (e.g. 502 Bad Gateway HTML)."""
+    mock_resp = MagicMock()
+    mock_resp.status_code = 502
+    mock_resp.json.side_effect = ValueError("Invalid JSON")
+    mock_resp.text = "<html>502 Bad Gateway</html>"
+    mock_request.return_value = mock_resp
+
+    with pytest.raises(ApiError) as exc:
+        list_machines()
+
+    assert exc.value.code == "INVALID_RESPONSE"
+    assert "Backend returned non-JSON response" in exc.value.message

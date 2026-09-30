@@ -77,7 +77,7 @@ def _request(
         )
 
     if not isinstance(payload, dict):
-        raise APIError(
+        raise ApiError(
             code="INVALID_RESPONSE",
             message="Malformed response payload from backend.",
             details={"payload": str(payload)[:200]}
