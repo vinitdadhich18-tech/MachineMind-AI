@@ -10,10 +10,10 @@ Build a vibration-based condition-monitoring prototype for rolling-element beari
 
 Dataset and subset stay **provisional** until Phases 1-2 verify them. Full details: `PROJECT_CONTEXT.md`.
 ## 3. Current phase
-**Phase 10 Completed — Model Packaging.**
+**Phase 11 Completed — ML Completion and Integration Readiness.**
 
 ## 4. Overall progress checklist
-Progress: **10 of 11 phases completed**
+Progress: **11 of 11 phases completed**
 
 - [x] Phase 1: Dataset Documentation and Understanding
 - [x] Phase 2: Dataset Acquisition and Organization
@@ -25,7 +25,7 @@ Progress: **10 of 11 phases completed**
 - [x] Phase 8: Evaluation
 - [x] Phase 9: Model Improvement
 - [x] Phase 10: Model Packaging
-- [ ] Phase 11: ML Completion and Integration Readiness
+- [x] Phase 11: ML Completion and Integration Readiness
 
 Pre-project setup (not a development phase):
 - [x] Phase 0: Setup & Context Verification
@@ -45,7 +45,7 @@ Status values: **Not Started**, **In Progress**, **Blocked**, **Completed**
 | 8 | Evaluation | Completed | 2026-09-29 | 2026-09-29 | Modular evaluation module & tests implemented in src/evaluation.py (14/14 unit tests passed, 36/36 total passed), notebook & report written, 6 figures generated |
 | 9 | Model Improvement | Completed | 2026-09-30 | 2026-09-30 | Executed EXP-04..EXP-12, reconciled audit, selected 28-feature set & Logical OR system alert policy, user approved final summary |
 | 10 | Model Packaging | Completed | 2026-09-30 | 2026-09-30 | Packaged iForest & PCA pipelines (28 time-domain feats), created model_metadata.json, implemented src/export_models.py & src/inference.py, 56/56 tests passed, verified reference consistency (IF max diff 0.00e+00, PCA 1.77e-14), executed notebook 08 & written model_card.md |
-| 11 | ML Completion and Integration Readiness | Not Started |  |  |  |
+| 11 | ML Completion and Integration Readiness | Completed | 2026-09-30 | 2026-09-30 | Audited Phases 1–10, verified pipeline reproducibility Level A (56/56 tests pass), pinned requirements.txt, verified raw IMS.zip SHA-256, completed claim audit, updated README.md, created final_ml_summary.md & integration_interface.md |
 
 ## 6. Completed deliverables
 Add a row only after the file exists **and** you have checked it.
@@ -62,7 +62,7 @@ Add a row only after the file exists **and** you have checked it.
 | 8 | `ml-service/reports/evaluation_protocol.md`, `ml-service/src/evaluation.py`, `ml-service/src/test_evaluation.py`, `ml-service/notebooks/06_evaluation.ipynb`, `ml-service/reports/evaluation_report.md`, `ml-service/reports/figures/evaluation/` | Unit test suite execution (14/14 passed), top-to-bottom notebook execution (nbconvert), 6 figure generation & report audit |
 | 9 | `ml-service/reports/experiment_log.md`, `ml-service/reports/improvement_summary.md`, `ml-service/notebooks/07_model_improvement.ipynb` | Controlled experiment suite execution (EXP-04..EXP-12), unit test suite execution (36/36 passed), top-to-bottom notebook execution, reconciliation audit & user approval |
 | 10 | `ml-service/src/export_models.py`, `ml-service/src/test_export_models.py`, `ml-service/src/inference.py`, `ml-service/src/test_inference.py`, `ml-service/models/model_metadata.json`, `ml-service/models/iforest_pipeline_v1.joblib`, `ml-service/models/pca_pipeline_v1.joblib`, `ml-service/notebooks/08_inference_check.ipynb`, `ml-service/reports/model_card.md` | Full unit test suite execution (56/56 passed), reference numerical consistency check (IF max diff 0.00e+00, PCA 1.77e-14 <= 1e-5), top-to-bottom notebook execution (nbconvert clean), fresh process artifact loading & audit |
-| 11 | *(none yet)* | |
+| 11 | `ml-service/requirements.txt`, `ml-service/README.md`, `ml-service/reports/final_ml_summary.md`, `ml-service/reports/integration_interface.md` | Full reproducibility audit execution, raw data SHA-256 verification, claim audit, notebook execution & 56/56 unit tests passed |
 
 ## 7. Important decisions
 | Date | Decision | Status (Provisional / Confirmed) | Reason |
@@ -105,7 +105,7 @@ Record every experiment, including unsuccessful ones. Results must come from act
 | 5 | Only one documented failure in Set 2; evaluation will be a single-case study | Limitation | Accepted |
 
 ## 10. Next action
-**Prepare for Phase 11 — ML Completion and Integration Readiness when ready.**
+**ML development phase is complete. All 11 phases verified.**
 
 
 ---

@@ -1,7 +1,15 @@
 # MachineMind AI - Core Machine Learning Dependencies
-numpy
-pandas
-matplotlib
-seaborn
-scikit-learn
-jupyter
+# Verified in Python 3.14.2 Environment
+
+# Core Runtime Pipeline Dependencies
+numpy==2.5.3
+pandas==3.0.6
+scipy==1.18.1
+scikit-learn==1.9.1
+joblib==1.6.0
+
+# Notebook & Visualization Dependencies
+matplotlib==3.11.2
+seaborn==0.13.2
+jupyter==1.1.1
+
