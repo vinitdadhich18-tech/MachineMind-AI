@@ -26,7 +26,11 @@ def create_app(config_class=Config) -> Flask:
     register_error_handlers(app)
 
     # Register blueprints with /api prefix
+    from backend.routes.health import health_bp
+    from backend.routes.inference import inference_bp
+
     app.register_blueprint(health_bp, url_prefix="/api")
+    app.register_blueprint(inference_bp, url_prefix="/api")
 
     # Initialize ML service
     from backend.services.ml_service import init_ml_service, get_model_version
