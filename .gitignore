@@ -44,6 +44,7 @@ ml-service/.venv/
 .env
 .env.*
 *.env
+!.env.example
 .venv
 
 # 5. Data Files (Exclude raw data dumps & processed datasets, preserve structure)
