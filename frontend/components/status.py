@@ -42,9 +42,18 @@ DISCLAIMER_TEXT = (
 )
 
 
-def render_global_header(active_machine_id: Optional[str] = None):
+def render_global_header(
+    active_machine_id: Optional[str] = None,
+    telemetry_info: Optional[Dict[str, Any]] = None
+):
     """Renders compact top application bar for control-room UI."""
     mach_display = active_machine_id or "E2E NASA TEST RIG"
+    status_text = "ONLINE (ML v1)"
+    if telemetry_info:
+        seq = telemetry_info.get("sequence_id")
+        if seq is not None:
+            status_text = f"ONLINE (SEQ #{seq})"
+
     st.markdown(
         f"""
         <div class="ctrl-header-shell">
@@ -58,7 +67,7 @@ def render_global_header(active_machine_id: Optional[str] = None):
                     ACTIVE MACHINE: <span style="color: #00E5FF; font-weight: 700;">{mach_display}</span>
                 </div>
                 <div style="font-size: 0.75rem; color: #10B981; font-weight: 700;">
-                    <span class="status-dot-normal"></span> ONLINE (ML v1)
+                    <span class="status-dot-normal"></span> {status_text}
                 </div>
                 <span class="ctrl-tag-proto">Research Prototype</span>
             </div>
