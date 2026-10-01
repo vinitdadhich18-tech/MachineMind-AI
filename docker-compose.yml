@@ -1,0 +1,35 @@
+# ===================================================================
+# MachineMind AI — Local Infrastructure Definition
+# ===================================================================
+# Local reproduciblity stack for InfluxDB v2 (Time-Series Database)
+# and Grafana (Monitoring UI, added in Phase 7).
+# Note: MQTT Transport uses HiveMQ Cloud over TLS (no local broker needed).
+# ===================================================================
+
+version: '3.8'
+
+services:
+  influxdb:
+    image: influxdb:2.7
+    container_name: machinemind-influxdb
+    restart: unless-stopped
+    ports:
+      - "8086:8086"
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=${INFLUXDB_INIT_USER:-admin}
+      - DOCKER_INFLUXDB_INIT_PASSWORD=${INFLUXDB_INIT_PASSWORD:-machinemind12345}
+      - DOCKER_INFLUXDB_INIT_ORG=${INFLUXDB_ORG:-machinemind_org}
+      - DOCKER_INFLUXDB_INIT_BUCKET=${INFLUXDB_BUCKET:-machinemind_telemetry}
+      - DOCKER_INFLUXDB_INIT_RETENTION=30d
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=${INFLUXDB_TOKEN:-your_influxdb_token_here}
+    volumes:
+      - influxdb-data:/var/lib/influxdb2
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8086/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  influxdb-data:
