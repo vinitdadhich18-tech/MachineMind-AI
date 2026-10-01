@@ -91,12 +91,13 @@ The current repository is structured as a decoupled 3-tier architecture with an 
 
 ## 4. MQTT Design Draft
 
-### Role & Transport Strategy
-- **Broker**: Eclipse Mosquitto (v2.0+) running locally on `localhost:1883`.
+### Role & Transport Strategy (Updated per Owner Specification)
+- **Broker**: HiveMQ Cloud (MQTT over TLS on port 8883).
 - **Publisher**: `ml-service/src/simulator.py` (reads NASA IMS raw snapshot files chronologically and emits JSON telemetry payloads).
 - **Consumer**: `ingestion/consumer.py` (subscribes to MQTT topic, parses/validates payloads, feeds feature pipeline and InfluxDB).
 - **QoS Policy**: QoS 1 (At Least Once) for telemetry; duplicate messages handled idempotently via InfluxDB point timestamps.
 - **Session Policy**: Clean session = `False`, Client ID = `machinemind-ingestion-consumer` to ensure zero message loss during temporary consumer restarts.
+- **Security & TLS**: TLS v1.2/v1.3 with TLS SNI host verification enabled. Credentials loaded strictly from environment variables (`MQTT_USERNAME`, `MQTT_PASSWORD`, `MQTT_BROKER_HOST`, `MQTT_BROKER_PORT`). Zero secrets committed.
 
 ---
 
