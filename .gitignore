@@ -81,3 +81,7 @@ ml-service/reports/*
 *.swo
 .DS_Store
 Thumbs.db
+
+# 9. Runtime dashboard state
+frontend/data/*
+!frontend/data/.gitkeep
