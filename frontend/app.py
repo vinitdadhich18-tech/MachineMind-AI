@@ -5,9 +5,16 @@ Displays live, deterministic vibration features generated from incoming MQTT tel
 replayed from the NASA IMS Set 2 Bearing Dataset.
 """
 
+import sys
+from pathlib import Path
+
+# Ensure repository root is on sys.path so 'frontend' package imports resolve on Streamlit Cloud
+ROOT_DIR = Path(__file__).resolve().parent.parent
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+
 import json
 import textwrap
-from pathlib import Path
 from typing import Dict, Any, Optional
 import pandas as pd
 import streamlit as st
