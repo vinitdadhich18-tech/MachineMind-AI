@@ -157,18 +157,11 @@ class InfluxDBWriter:
             except Exception:
                 point_time = datetime.now(timezone.utc)
 
-            # 2. Reconstruct pandas DataFrame (20480, 4) from NumPy channel arrays for feature extraction
-            df_snapshot = pd.DataFrame({
-                "Channel_1": record.channels["ch1"],
-                "Channel_2": record.channels["ch2"],
-                "Channel_3": record.channels["ch3"],
-                "Channel_4": record.channels["ch4"],
-            })
-
-            # Extract 7 time-domain + 2 frequency-domain features per channel
-            time_feats = extract_time_features(df_snapshot)
-            freq_feats = extract_frequency_features(df_snapshot, sampling_rate=record.sampling_rate_hz)
-            all_feats = {**time_feats, **freq_feats}
+            # 2. Extract Canonical Feature Vector via CanonicalFeaturePipeline
+            from src.canonical_feature_pipeline import CanonicalFeaturePipeline
+            pipeline = CanonicalFeaturePipeline(sampling_rate_hz=record.sampling_rate_hz)
+            vector = pipeline.process_telemetry_record(record)
+            all_feats = vector.feature_dict
 
             points: List[Point] = []
 
