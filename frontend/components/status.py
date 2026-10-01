@@ -48,11 +48,15 @@ def render_global_header(
 ):
     """Renders compact top application bar for control-room UI."""
     mach_display = active_machine_id or "E2E NASA TEST RIG"
-    status_text = "ONLINE (ML v1)"
     if telemetry_info:
         seq = telemetry_info.get("sequence_id")
-        if seq is not None:
-            status_text = f"ONLINE (SEQ #{seq})"
+        status_text = f"ONLINE (SEQ #{seq})" if seq is not None else "ONLINE (ML v1)"
+        status_dot = "status-dot-normal"
+        status_color = "#10B981"
+    else:
+        status_text = "IDLE / WAITING FOR TELEMETRY"
+        status_dot = "status-dot-watch"
+        status_color = "#F59E0B"
 
     st.markdown(
         f"""
@@ -66,8 +70,8 @@ def render_global_header(
                 <div style="font-size: 0.78rem; color: #94A3B8; font-weight: 600;">
                     ACTIVE MACHINE: <span style="color: #00E5FF; font-weight: 700;">{mach_display}</span>
                 </div>
-                <div style="font-size: 0.75rem; color: #10B981; font-weight: 700;">
-                    <span class="status-dot-normal"></span> {status_text}
+                <div style="font-size: 0.75rem; color: {status_color}; font-weight: 700;">
+                    <span class="{status_dot}"></span> {status_text}
                 </div>
                 <span class="ctrl-tag-proto">Research Prototype</span>
             </div>
@@ -99,30 +103,39 @@ def render_sidebar_shell(health: Optional[Dict[str, Any]] = None):
         model_info = health.get("model", {})
         model_ok = model_info.get("loaded", False)
         version = model_info.get("version", "v1")
+    else:
+        backend_ok = False
+        db_ok = False
+        model_ok = True
+        version = "v1"
 
-        b_dot = "status-dot-normal" if backend_ok else "status-dot-anomaly"
-        d_dot = "status-dot-normal" if db_ok else "status-dot-anomaly"
-        m_dot = "status-dot-normal" if model_ok else "status-dot-anomaly"
+    b_dot = "status-dot-normal" if backend_ok else "status-dot-gray"
+    d_dot = "status-dot-normal" if db_ok else "status-dot-gray"
+    m_dot = "status-dot-normal" if model_ok else "status-dot-gray"
 
-        st.sidebar.markdown(
-            f"""
-            <div style="background: #0B0E14; border: 1px solid #1C2436; border-radius: 4px; padding: 10px; margin-top: 20px;">
-                <div style="font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #64748B; margin-bottom: 6px;">
-                    SYSTEM STATUS
-                </div>
-                <div style="font-size: 0.72rem; color: #94A3B8; margin-bottom: 3px;">
-                    <span class="{b_dot}"></span> API {'ONLINE' if backend_ok else 'OFFLINE'}
-                </div>
-                <div style="font-size: 0.72rem; color: #94A3B8; margin-bottom: 3px;">
-                    <span class="{d_dot}"></span> DATABASE {'ONLINE' if db_ok else 'ERROR'}
-                </div>
-                <div style="font-size: 0.72rem; color: #94A3B8;">
-                    <span class="{m_dot}"></span> MODEL {version} LOADED
-                </div>
+    b_text = "ONLINE" if backend_ok else "STANDBY"
+    d_text = "ONLINE" if db_ok else "STANDBY"
+    m_text = f"MODEL {version} READY"
+
+    st.sidebar.markdown(
+        f"""
+        <div style="background: #0B0E14; border: 1px solid #1C2436; border-radius: 4px; padding: 10px; margin-top: 20px;">
+            <div style="font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #64748B; margin-bottom: 6px;">
+                SYSTEM STATUS
             </div>
-            """,
-            unsafe_allow_html=True
-        )
+            <div style="font-size: 0.72rem; color: #94A3B8; margin-bottom: 3px;">
+                <span class="{b_dot}"></span> API {b_text}
+            </div>
+            <div style="font-size: 0.72rem; color: #94A3B8; margin-bottom: 3px;">
+                <span class="{d_dot}"></span> DATABASE {d_text}
+            </div>
+            <div style="font-size: 0.72rem; color: #94A3B8;">
+                <span class="{m_dot}"></span> {m_text}
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
 
 def render_status_badge(state: str, short: bool = False):

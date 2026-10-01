@@ -60,14 +60,15 @@ def load_live_telemetry() -> Optional[Dict[str, Any]]:
 def main():
     inject_theme()
 
-    # Sidebar Auto-Refresh Toggle (Refresh every 2000 ms)
-    with st.sidebar:
-        auto_refresh = st.checkbox("Auto-Refresh Telemetry (2s)", value=True)
-        if auto_refresh:
-            st_autorefresh(interval=2000, key="telemetry_autorefresh")
-
     # Load latest MQTT Telemetry State
     telemetry = load_live_telemetry()
+
+    # Sidebar Auto-Refresh Toggle
+    with st.sidebar:
+        auto_refresh = st.checkbox("Auto-Refresh Telemetry", value=True)
+        if auto_refresh:
+            refresh_interval = 2000 if telemetry is not None else 3000
+            st_autorefresh(interval=refresh_interval, key="telemetry_autorefresh")
 
     # Render Sidebar Shell
     render_sidebar_shell(telemetry)
@@ -82,14 +83,18 @@ def main():
     if telemetry is None:
         awaiting_html = textwrap.dedent("""
         <div class="ctrl-panel-highlight">
-            <div style="font-size: 1.1rem; font-weight: 800; color: #F1F5F9; margin-bottom: 6px;">
-                ⚠️ AWAITING LIVE MQTT TELEMETRY
+            <div style="font-size: 1.1rem; font-weight: 800; color: #F59E0B; margin-bottom: 6px;">
+                IDLE / WAITING FOR TELEMETRY
+            </div>
+            <div style="font-size: 0.95rem; font-weight: 600; color: #F1F5F9; margin-bottom: 12px;">
+                Waiting for live telemetry stream...
             </div>
             <div style="font-size: 0.82rem; color: #94A3B8; margin-bottom: 12px;">
-                No live telemetry state found at <code>frontend/data/live_telemetry.json</code>.
+                No active live telemetry state found at <code>frontend/data/live_telemetry.json</code>.
             </div>
             <div style="font-size: 0.78rem; color: #64748B;">
-                To view live telemetry on this dashboard:
+                This dashboard automatically updates as soon as incoming vibration telemetry is received.<br>
+                For local/hybrid execution:
                 <ol style="margin-top: 6px; padding-left: 20px;">
                     <li>Start the MQTT Dashboard Bridge: <code>$env:PYTHONPATH="ml-service"; python ml-service/src/mqtt_dashboard_bridge.py</code></li>
                     <li>Replay NASA IMS snapshots: <code>$env:PYTHONPATH="ml-service"; python ml-service/src/simulator.py --start-idx 0 --end-idx 10 --interval 2</code></li>
