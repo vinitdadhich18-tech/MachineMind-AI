@@ -1,0 +1,204 @@
+{
+  "model_name": "MachineMind_XGBoost_RUL_Regressor",
+  "model_version": "1.0.0",
+  "creation_timestamp": "2026-10-01T06:51:55.858840+00:00",
+  "git_commit": "8759bb2a2af50453b02789566f1d9aec0ae561e8",
+  "data_fingerprint": "86babe8e29a8ab58af17b355b7317e2b2dd170be333823c72e8afd7272371d6d",
+  "raw_snapshot_count": 984,
+  "split_definition": {
+    "train": [
+      0,
+      600
+    ],
+    "val": [
+      601,
+      750
+    ],
+    "test": [
+      751,
+      983
+    ]
+  },
+  "target_definition": {
+    "target_column": "capped_rul_400",
+    "formula": "min(983 - t, 400)",
+    "cap_value": 400,
+    "unit": "snapshots (~10 min per snapshot)"
+  },
+  "target_ranges": {
+    "linear_rul": {
+      "train": [
+        383.0,
+        983.0
+      ],
+      "val": [
+        233.0,
+        382.0
+      ],
+      "test": [
+        0.0,
+        232.0
+      ]
+    },
+    "capped_rul_400": {
+      "train": [
+        383.0,
+        400.0
+      ],
+      "val": [
+        233.0,
+        382.0
+      ],
+      "test": [
+        0.0,
+        232.0
+      ]
+    }
+  },
+  "feature_schema": [
+    "ch1_mean",
+    "ch1_std",
+    "ch1_rms",
+    "ch1_p2p",
+    "ch1_skewness",
+    "ch1_kurtosis",
+    "ch1_crest_factor",
+    "ch1_spectral_energy",
+    "ch1_spectral_centroid",
+    "ch2_mean",
+    "ch2_std",
+    "ch2_rms",
+    "ch2_p2p",
+    "ch2_skewness",
+    "ch2_kurtosis",
+    "ch2_crest_factor",
+    "ch2_spectral_energy",
+    "ch2_spectral_centroid",
+    "ch3_mean",
+    "ch3_std",
+    "ch3_rms",
+    "ch3_p2p",
+    "ch3_skewness",
+    "ch3_kurtosis",
+    "ch3_crest_factor",
+    "ch3_spectral_energy",
+    "ch3_spectral_centroid",
+    "ch4_mean",
+    "ch4_std",
+    "ch4_rms",
+    "ch4_p2p",
+    "ch4_skewness",
+    "ch4_kurtosis",
+    "ch4_crest_factor",
+    "ch4_spectral_energy",
+    "ch4_spectral_centroid"
+  ],
+  "feature_count": 36,
+  "hyperparameters": {
+    "n_estimators": 200,
+    "learning_rate": 0.03,
+    "max_depth": 4,
+    "subsample": 0.8,
+    "colsample_bytree": 0.8,
+    "reg_alpha": 0.1,
+    "reg_lambda": 1.0,
+    "random_state": 42,
+    "n_jobs": 1,
+    "early_stopping_rounds": 20
+  },
+  "best_iteration": 198,
+  "library_versions": {
+    "python": "3.14.2",
+    "xgboost": "3.4.1",
+    "scikit-learn": "1.9.1",
+    "numpy": "2.5.2",
+    "pandas": "3.0.6"
+  },
+  "metrics": {
+    "mean_baseline": {
+      "train": {
+        "rmse": 1.8603,
+        "mae": 1.198,
+        "r2": -0.1913
+      },
+      "val": {
+        "rmse": 101.2283,
+        "mae": 91.5,
+        "r2": -4.4654
+      },
+      "test": {
+        "rmse": 290.8831,
+        "mae": 283.0,
+        "r2": -17.7031
+      }
+    },
+    "linear_regression_baseline": {
+      "train": {
+        "rmse": 1.439,
+        "mae": 0.6175,
+        "r2": 0.2872
+      },
+      "val": {
+        "rmse": 87.4788,
+        "mae": 79.762,
+        "r2": -3.0815
+      },
+      "test": {
+        "rmse": 254.3357,
+        "mae": 248.2499,
+        "r2": -13.2986
+      }
+    },
+    "xgboost": {
+      "train": {
+        "rmse": 0.085,
+        "mae": 0.0143,
+        "r2": 0.9975
+      },
+      "val": {
+        "rmse": 95.3683,
+        "mae": 85.0198,
+        "r2": -3.8509
+      },
+      "test": {
+        "rmse": 284.5865,
+        "mae": 276.4418,
+        "r2": -16.9022
+      }
+    }
+  },
+  "leakage_audit_summary": {
+    "all_passed": true,
+    "splits_audit": {
+      "is_disjoint": true,
+      "is_ordered": true,
+      "covers_all": true,
+      "passed": true
+    },
+    "feature_leakage_audit": {
+      "leaked_columns": [],
+      "passed": true
+    },
+    "preprocessor_isolation_audit": {
+      "train_scaler_fitted": true,
+      "statistically_isolated": true,
+      "passed": true
+    },
+    "causality_audit": {
+      "is_causal": true,
+      "passed": true
+    }
+  },
+  "top_features_by_gain": {
+    "ch4_rms": 66.1584,
+    "ch4_spectral_energy": 57.4711,
+    "ch1_rms": 46.4978,
+    "ch4_mean": 40.595,
+    "ch2_kurtosis": 38.0147,
+    "ch3_rms": 36.981,
+    "ch3_p2p": 31.5742,
+    "ch2_std": 30.7433,
+    "ch3_std": 25.6512,
+    "ch3_skewness": 24.1735
+  }
+}
