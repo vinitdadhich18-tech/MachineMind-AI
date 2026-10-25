@@ -7,11 +7,33 @@ services:
     container_name: machinemind-streamlit
     ports:
       - "8501:8501"
+    environment:
+      - BACKEND_URL=http://backend:5000
     volumes:
       - telemetry-data:/app/frontend/data
+    depends_on:
+      - backend
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  backend:
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+    image: machinemind-backend:latest
+    container_name: machinemind-backend
+    ports:
+      - "5000:5000"
+    env_file:
+      - path: .env
+        required: false
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/health"]
       interval: 10s
       timeout: 5s
       retries: 3

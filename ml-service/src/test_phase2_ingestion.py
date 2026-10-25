@@ -399,3 +399,246 @@ def test_dashboard_bridge_write_state_regression_guard(tmp_path, monkeypatch):
     mqtt_dashboard_bridge.write_state(rec100)
     data = json.loads(test_state_file.read_text(encoding="utf-8"))
     assert data["snapshot_sequence"] == 100
+
+
+def test_replay_cycle_resets_seen_sequences_on_seq_zero():
+    """Verifies that sequence 0..99 followed by a new cycle at sequence 0 resets state and succeeds."""
+    callback_mock = MagicMock()
+    config = MQTTConfig()
+    consumer = TelemetryIngestionConsumer(config=config, record_callback=callback_mock)
+
+    arr = np.zeros((EXPECTED_SAMPLE_COUNT, 4))
+
+    def _make_msg(seq: int):
+        p = build_telemetry_payload(arr, "rig_replay", seq, "2004-02-12T10:32:39Z")
+        m = MagicMock()
+        m.topic = "machinemind/v1/telemetry/rig_replay"
+        m.payload = serialize_payload(p).encode('utf-8')
+        m.qos = 1
+        m.retain = False
+        return m
+
+    # Cycle 1: seq 0 to 99
+    for s in range(100):
+        consumer._on_message(None, None, _make_msg(s))
+
+    assert consumer.metrics.messages_accepted == 100
+    assert consumer.metrics.duplicates_detected == 0
+    assert consumer._last_sequences["rig_replay"] == 99
+    assert callback_mock.call_count == 100
+
+    # Start of Cycle 2: seq 0
+    consumer._on_message(None, None, _make_msg(0))
+
+    # Should be accepted as replay reset, NOT duplicate
+    assert consumer.metrics.messages_accepted == 101
+    assert consumer.metrics.duplicates_detected == 0
+    assert consumer._last_sequences["rig_replay"] == 0
+    assert callback_mock.call_count == 101
+
+    rec_cycle2_0: TelemetryRecord = callback_mock.call_args[0][0]
+    assert rec_cycle2_0.snapshot_sequence == 0
+    assert rec_cycle2_0.ingestion_metadata["is_replay_reset"] is True
+    assert rec_cycle2_0.ingestion_metadata["is_duplicate"] is False
+
+    # Next sequence in Cycle 2: seq 1
+    consumer._on_message(None, None, _make_msg(1))
+    assert consumer.metrics.messages_accepted == 102
+    assert consumer.metrics.duplicates_detected == 0
+    assert consumer._last_sequences["rig_replay"] == 1
+    assert callback_mock.call_count == 102
+
+
+def test_duplicate_within_same_cycle_is_rejected():
+    """Verifies that duplicate sequence within the same cycle is rejected without callback."""
+    callback_mock = MagicMock()
+    config = MQTTConfig()
+    consumer = TelemetryIngestionConsumer(config=config, record_callback=callback_mock)
+
+    arr = np.zeros((EXPECTED_SAMPLE_COUNT, 4))
+
+    def _make_msg(seq: int):
+        p = build_telemetry_payload(arr, "rig_dup_cycle", seq, "2004-02-12T10:32:39Z")
+        m = MagicMock()
+        m.topic = "machinemind/v1/telemetry/rig_dup_cycle"
+        m.payload = serialize_payload(p).encode('utf-8')
+        m.qos = 1
+        m.retain = False
+        return m
+
+    consumer._on_message(None, None, _make_msg(0))
+    consumer._on_message(None, None, _make_msg(1))
+    assert callback_mock.call_count == 2
+
+    # Duplicate seq 1
+    consumer._on_message(None, None, _make_msg(1))
+    assert consumer.metrics.duplicates_detected == 1
+    assert callback_mock.call_count == 2  # callback not invoked
+
+
+def test_out_of_order_non_zero_does_not_reset_state():
+    """Verifies that out-of-order non-zero sequence is rejected without resetting state."""
+    callback_mock = MagicMock()
+    config = MQTTConfig()
+    consumer = TelemetryIngestionConsumer(config=config, record_callback=callback_mock)
+
+    arr = np.zeros((EXPECTED_SAMPLE_COUNT, 4))
+
+    def _make_msg(seq: int):
+        p = build_telemetry_payload(arr, "rig_ooo_no_reset", seq, "2004-02-12T10:32:39Z")
+        m = MagicMock()
+        m.topic = "machinemind/v1/telemetry/rig_ooo_no_reset"
+        m.payload = serialize_payload(p).encode('utf-8')
+        m.qos = 1
+        m.retain = False
+        return m
+
+    consumer._on_message(None, None, _make_msg(10))
+    consumer._on_message(None, None, _make_msg(20))
+    assert consumer._last_sequences["rig_ooo_no_reset"] == 20
+
+    # Non-zero out of order: seq 15
+    consumer._on_message(None, None, _make_msg(15))
+    assert consumer.metrics.out_of_order_detected == 1
+    assert consumer._last_sequences["rig_ooo_no_reset"] == 20  # not regressed or reset
+
+
+def test_delayed_seq_zero_without_prior_progress_does_not_reset():
+    """Verifies that an immediate second seq 0 (last_seq == 0) is treated as duplicate, not replay reset."""
+    callback_mock = MagicMock()
+    config = MQTTConfig()
+    consumer = TelemetryIngestionConsumer(config=config, record_callback=callback_mock)
+
+    arr = np.zeros((EXPECTED_SAMPLE_COUNT, 4))
+
+    def _make_msg(seq: int):
+        p = build_telemetry_payload(arr, "rig_immediate_zero", seq, "2004-02-12T10:32:39Z")
+        m = MagicMock()
+        m.topic = "machinemind/v1/telemetry/rig_immediate_zero"
+        m.payload = serialize_payload(p).encode('utf-8')
+        m.qos = 1
+        m.retain = False
+        return m
+
+    # First seq 0
+    consumer._on_message(None, None, _make_msg(0))
+    assert consumer.metrics.messages_accepted == 1
+    assert callback_mock.call_count == 1
+
+    # Immediate second seq 0 (retry / delayed duplicate with last_seq=0)
+    consumer._on_message(None, None, _make_msg(0))
+    assert consumer.metrics.duplicates_detected == 1
+    assert callback_mock.call_count == 1  # suppressed duplicate!
+
+
+def test_dashboard_bridge_allows_verified_replay_reset_and_blocks_unverified(tmp_path, monkeypatch):
+    """Verifies that dashboard bridge updates on verified replay reset, but ignores unverified seq 0."""
+    from src import mqtt_dashboard_bridge
+    test_state_file = tmp_path / "live_telemetry.json"
+    monkeypatch.setattr(mqtt_dashboard_bridge, "STATE_FILE", test_state_file)
+    monkeypatch.setattr(mqtt_dashboard_bridge, "FRONTEND_DATA_DIR", tmp_path)
+    mqtt_dashboard_bridge.reset_latest_written_sequence()
+
+    channels = {f"ch{i}": np.zeros(EXPECTED_SAMPLE_COUNT, dtype=np.float64) for i in range(1, 5)}
+
+    def _build_record(seq: int, is_dup: bool = False, is_ooo: bool = False, is_reset: bool = False):
+        return TelemetryRecord(
+            machine_id="rig_dashboard_reset",
+            snapshot_sequence=seq,
+            original_timestamp="2004-02-12T10:32:39Z",
+            ingest_timestamp="2026-10-25T15:00:00Z",
+            sampling_rate_hz=20480.0,
+            sample_count=EXPECTED_SAMPLE_COUNT,
+            source="replayed_nasa_ims",
+            channels=channels,
+            ingestion_metadata={
+                "is_duplicate": is_dup,
+                "is_out_of_order": is_ooo,
+                "is_sequence_gap": False,
+                "is_replay_reset": is_reset,
+                "processing_latency_ms": 5.0
+            }
+        )
+
+    # 1. Dashboard at seq 99
+    mqtt_dashboard_bridge.write_state(_build_record(99))
+    data = json.loads(test_state_file.read_text(encoding="utf-8"))
+    assert data["snapshot_sequence"] == 99
+
+    # 2. Unverified seq 0 (is_replay_reset=False) -> MUST NOT regress dashboard
+    mqtt_dashboard_bridge.write_state(_build_record(0, is_reset=False))
+    data = json.loads(test_state_file.read_text(encoding="utf-8"))
+    assert data["snapshot_sequence"] == 99
+
+    # 3. Verified replay reset seq 0 (is_replay_reset=True) -> MUST update dashboard to 0
+    mqtt_dashboard_bridge.write_state(_build_record(0, is_reset=True))
+    data = json.loads(test_state_file.read_text(encoding="utf-8"))
+    assert data["snapshot_sequence"] == 0
+
+
+def test_fresh_consumer_with_persisted_state_recognizes_replay_reset(tmp_path, monkeypatch):
+    """
+    Verifies that when a fresh consumer is started with a persisted dashboard file
+    holding sequence 99 (e.g. across container restarts), seeding the consumer
+    with the persisted sequence allows it to recognize a new replay cycle at sequence 0,
+    successfully update the dashboard, and reject stale/duplicate messages.
+    """
+    from src import mqtt_dashboard_bridge
+    test_state_file = tmp_path / "live_telemetry.json"
+    monkeypatch.setattr(mqtt_dashboard_bridge, "STATE_FILE", test_state_file)
+    monkeypatch.setattr(mqtt_dashboard_bridge, "FRONTEND_DATA_DIR", tmp_path)
+    mqtt_dashboard_bridge.reset_latest_written_sequence()
+
+    # Pre-populate persisted state file simulating previous container run at seq 99
+    initial_state = {
+        "machine_id": "rig_persisted_test",
+        "snapshot_sequence": 99,
+        "original_timestamp": "2004-02-12T10:32:39Z",
+        "ingest_timestamp": "2026-10-25T15:00:00Z",
+        "sampling_rate_hz": 20480.0,
+        "sample_count": EXPECTED_SAMPLE_COUNT,
+        "source": "replayed_nasa_ims",
+        "feature_count": 36,
+        "channels": [],
+        "ingestion": {"is_duplicate": False, "is_out_of_order": False, "is_sequence_gap": False}
+    }
+    test_state_file.write_text(json.dumps(initial_state), encoding="utf-8")
+
+    # Read persisted sequence
+    persisted_seq = mqtt_dashboard_bridge.get_latest_written_sequence("rig_persisted_test")
+    assert persisted_seq == 99
+
+    # Fresh consumer instantiated with seeded sequence
+    config = MQTTConfig()
+    consumer = TelemetryIngestionConsumer(
+        config=config,
+        record_callback=mqtt_dashboard_bridge.write_state,
+        initial_sequences={"rig_persisted_test": persisted_seq}
+    )
+
+    arr = np.zeros((EXPECTED_SAMPLE_COUNT, 4))
+
+    def _make_msg(seq: int):
+        p = build_telemetry_payload(arr, "rig_persisted_test", seq, "2004-02-12T10:32:39Z")
+        m = MagicMock()
+        m.topic = "machinemind/v1/telemetry/rig_persisted_test"
+        m.payload = serialize_payload(p).encode('utf-8')
+        m.qos = 1
+        m.retain = False
+        return m
+
+    # 1. Stale older sequence arriving (e.g. seq 50) -> should be rejected by out-of-order & dashboard guard
+    consumer._on_message(None, None, _make_msg(50))
+    data = json.loads(test_state_file.read_text(encoding="utf-8"))
+    assert data["snapshot_sequence"] == 99  # NOT overwritten!
+
+    # 2. Legitimate new replay cycle starting at sequence 0
+    consumer._on_message(None, None, _make_msg(0))
+    data = json.loads(test_state_file.read_text(encoding="utf-8"))
+    assert data["snapshot_sequence"] == 0  # Successfully updated to 0!
+    assert consumer._last_sequences["rig_persisted_test"] == 0
+
+    # 3. Next message in cycle (seq 1) -> dashboard advances to 1
+    consumer._on_message(None, None, _make_msg(1))
+    data = json.loads(test_state_file.read_text(encoding="utf-8"))
+    assert data["snapshot_sequence"] == 1

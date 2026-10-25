@@ -116,12 +116,15 @@ def write_state(record):
         return
 
     current_seq = get_latest_written_sequence(record.machine_id)
-    if current_seq >= 0 and record.snapshot_sequence < current_seq and record.snapshot_sequence != 0:
-        logger.warning(
-            f"[DASHBOARD REGRESSION GUARD] Ignoring older sequence {record.snapshot_sequence} "
-            f"for machine '{record.machine_id}' (dashboard is currently at sequence {current_seq})."
-        )
-        return
+    if current_seq >= 0 and record.snapshot_sequence < current_seq:
+        is_replay_reset = record.ingestion_metadata.get("is_replay_reset", False)
+        # Allow transition only if this is a verified replay cycle reset starting at seq 0
+        if not (record.snapshot_sequence == 0 and is_replay_reset):
+            logger.warning(
+                f"[DASHBOARD REGRESSION GUARD] Ignoring older sequence {record.snapshot_sequence} "
+                f"for machine '{record.machine_id}' (dashboard is currently at sequence {current_seq})."
+            )
+            return
 
     try:
         # --------------------------------------------------------
@@ -328,17 +331,23 @@ def main():
     config = MQTTConfig()
 
     # --------------------------------------------------------
-    # Create the existing MachineMind MQTT consumer.
-    #
-    # IMPORTANT:
-    # TelemetryIngestionConsumer requires BOTH:
-    #   1. config
-    #   2. record_callback
+    # Read persisted sequence from STATE_FILE to bridge state
+    # across container restarts. This ensures that if the bridge
+    # restarts while the shared volume holds previous state,
+    # the consumer can recognize a legitimate sequence 0 replay reset.
     # --------------------------------------------------------
+    initial_seqs = {}
+    persisted_seq = get_latest_written_sequence(config.machine_id)
+    if persisted_seq >= 0:
+        initial_seqs[config.machine_id] = persisted_seq
+        logger.info(
+            f"Seeded consumer with persisted sequence {persisted_seq} for machine '{config.machine_id}'."
+        )
 
     consumer = TelemetryIngestionConsumer(
         config=config,
-        record_callback=write_state
+        record_callback=write_state,
+        initial_sequences=initial_seqs
     )
 
     # --------------------------------------------------------

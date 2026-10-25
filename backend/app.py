@@ -2,6 +2,7 @@
 app.py - Application factory and entrypoint for MachineMind AI Flask Backend.
 """
 
+import os
 import logging
 from flask import Flask
 from flask_cors import CORS
@@ -40,14 +41,24 @@ def create_app(config_class=Config) -> Flask:
     app.register_blueprint(alerts_bp, url_prefix="/api")
     app.register_blueprint(data_bp, url_prefix="/api")
 
-    # Initialize DB indexes if DB is available
+    # Initialize DB indexes and ensure canonical telemetry machine is registered
     from backend.utils.db import get_db, init_db_indexes
     try:
         db = get_db(config_class.MONGO_URI, config_class.DATABASE_NAME)
         if db is not None:
             init_db_indexes(db)
+            # Ensure canonical NASA IMS Set 2 rig is registered in production/runtime (non-testing)
+            if not getattr(config_class, "TESTING", False):
+                from backend.services.machine_service import ensure_machine_registered
+                with app.app_context():
+                    canonical_machine_id = os.getenv("MQTT_MACHINE_ID", "ims_set2_rig").strip()
+                    ensure_machine_registered(
+                        machine_id=canonical_machine_id,
+                        name="NASA IMS Bearing Test Rig",
+                        description="NASA IMS Bearing Dataset (Set 2) 4-channel vibration test rig."
+                    )
     except Exception as e:
-        logger.warning(f"Could not initialize DB indexes at startup: {e}")
+        logger.warning(f"Could not initialize DB indexes or canonical machine at startup: {e}")
 
     # Initialize ML service
     from backend.services.ml_service import init_ml_service, get_model_version

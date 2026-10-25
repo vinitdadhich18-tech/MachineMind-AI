@@ -107,7 +107,8 @@ class TelemetryIngestionConsumer:
         self,
         config: MQTTConfig,
         record_callback: Optional[Callable[[TelemetryRecord], None]] = None,
-        clean_session: Optional[bool] = None
+        clean_session: Optional[bool] = None,
+        initial_sequences: Optional[Dict[str, int]] = None
     ):
         self.config = config
         self.record_callback = record_callback
@@ -118,7 +119,7 @@ class TelemetryIngestionConsumer:
 
         # Per-machine sequence state for idempotency and ordering
         # machine_id -> last_sequence_int
-        self._last_sequences: Dict[str, int] = {}
+        self._last_sequences: Dict[str, int] = dict(initial_sequences) if initial_sequences else {}
 
         # Buffer to keep track of processed sequence IDs for windowed duplicate detection
         # machine_id -> set of sequence ints
@@ -205,7 +206,7 @@ class TelemetryIngestionConsumer:
                 logger.error(f"[REJECTED - MALFORMED SCHEMA] Topic '{topic}': {err}")
                 return
 
-            # 3. Extract Metadata & Check Sequence / Idempotency
+            # 3. Extract Metadata & Check Sequence / Idempotency / Replay Cycle
             machine_id = payload_dict["machine_id"]
             seq = payload_dict["snapshot_sequence"]
             orig_ts = payload_dict["original_timestamp"]
@@ -213,13 +214,35 @@ class TelemetryIngestionConsumer:
             is_duplicate = False
             is_out_of_order = False
             is_gap = False
+            is_replay_reset = False
 
             if machine_id not in self._seen_sequences:
                 self._seen_sequences[machine_id] = set()
+            if machine_id not in self._last_sequences:
                 self._last_sequences[machine_id] = -1
 
             seen_set = self._seen_sequences[machine_id]
             last_seq = self._last_sequences[machine_id]
+
+            # Replay Cycle Reset Check:
+            # When sequence 0 arrives for a machine that has already processed a valid
+            # run (last_seq >= 1), evaluate whether this represents a legitimate new
+            # replay iteration (e.g. simulator looping through the dataset).
+            # Note on schema limitation: Because the current schema does not include a
+            # distinct run_id / epoch_id, a delayed sequence-zero packet cannot be
+            # distinguished with mathematical certainty from a fresh replay restart.
+            # To protect against accidental reset, we require last_seq >= 1.
+            # When verified, we clear the sequence deduplication set and reset tracking.
+            if seq == 0 and last_seq >= 1:
+                is_replay_reset = True
+                logger.info(
+                    f"[REPLAY CYCLE RESET] Machine '{machine_id}' reset to sequence 0 "
+                    f"after previous cycle reached sequence {last_seq}. Resetting idempotency window."
+                )
+                seen_set.clear()
+                self._seen_sequences[machine_id] = seen_set
+                self._last_sequences[machine_id] = -1
+                last_seq = -1
 
             # Idempotency check: QoS 1 retry handling
             if seq in seen_set:
@@ -239,8 +262,8 @@ class TelemetryIngestionConsumer:
                     is_gap = True
                     logger.warning(f"[SEQUENCE GAP DETECTED] Machine '{machine_id}' jumped from sequence {last_seq} to {seq}.")
 
-            # Update last sequence tracker if monotonic
-            if seq > last_seq:
+            # Update last sequence tracker if monotonic or verified replay reset
+            if seq > last_seq or is_replay_reset:
                 self._last_sequences[machine_id] = seq
                 self.metrics.last_processed_sequence[machine_id] = seq
 
@@ -267,6 +290,7 @@ class TelemetryIngestionConsumer:
                     "is_duplicate": is_duplicate,
                     "is_out_of_order": is_out_of_order,
                     "is_sequence_gap": is_gap,
+                    "is_replay_reset": is_replay_reset,
                     "processing_latency_ms": round(processing_latency_ms, 3),
                     "qos": msg.qos,
                     "retained": msg.retain,
@@ -274,11 +298,17 @@ class TelemetryIngestionConsumer:
             )
 
             self.metrics.messages_accepted += 1
-            logger.info(
-                f"[ACCEPTED TELEMETRY] machine='{machine_id}' seq={seq} "
-                f"orig_ts='{orig_ts}' latency={processing_latency_ms:.2f}ms "
-                f"duplicate={is_duplicate} gap={is_gap}"
-            )
+            if is_duplicate:
+                logger.info(
+                    f"[DUPLICATE TELEMETRY DROPPED] machine='{machine_id}' seq={seq} "
+                    f"orig_ts='{orig_ts}' latency={processing_latency_ms:.2f}ms"
+                )
+            else:
+                logger.info(
+                    f"[ACCEPTED TELEMETRY] machine='{machine_id}' seq={seq} "
+                    f"orig_ts='{orig_ts}' latency={processing_latency_ms:.2f}ms "
+                    f"gap={is_gap} replay_reset={is_replay_reset}"
+                )
 
             # 6. Invoke Downstream Callback if registered (and not duplicate)
             if self.record_callback and not is_duplicate:
