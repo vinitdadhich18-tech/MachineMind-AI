@@ -32,6 +32,9 @@ from frontend.components.charts import (
     render_crest_factor_chart,
     render_spectral_centroid_chart
 )
+from frontend.utils.config import BACKEND_URL
+from frontend.services.api_client import get_health
+from frontend.services.telemetry_loader import fetch_telemetry_stream
 
 # Live telemetry state file written by mqtt_dashboard_bridge.py
 DATA_FILE = Path(__file__).resolve().parent / "data" / "live_telemetry.json"
@@ -46,22 +49,22 @@ st.set_page_config(
 )
 
 
-def load_live_telemetry() -> Optional[Dict[str, Any]]:
-    """Loads latest telemetry JSON state produced by MQTT dashboard bridge."""
-    if not DATA_FILE.exists():
-        return None
-    try:
-        with open(DATA_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return None
+def load_live_telemetry(machine_id: str = "ims_set2_rig") -> Dict[str, Any]:
+    """Loads latest telemetry stream using remote backend first with local file fallback."""
+    return fetch_telemetry_stream(machine_id=machine_id, local_file=DATA_FILE)
 
 
 def main():
     inject_theme()
 
-    # Load latest MQTT Telemetry State
-    telemetry = load_live_telemetry()
+    # Load latest MQTT Telemetry State (remote backend first, local fallback)
+    stream_info = load_live_telemetry(machine_id="ims_set2_rig")
+    telemetry = stream_info.get("telemetry")
+    source = stream_info.get("source")
+    status = stream_info.get("status")
+    is_stale = stream_info.get("is_stale", False)
+    age_str = stream_info.get("age_str", "N/A")
+    last_updated_str = stream_info.get("last_updated_str", "N/A")
 
     # Sidebar Auto-Refresh Toggle
     with st.sidebar:
@@ -70,27 +73,51 @@ def main():
             refresh_interval = 2000 if telemetry is not None else 3000
             st_autorefresh(interval=refresh_interval, key="telemetry_autorefresh")
 
-    # Render Sidebar Shell
-    render_sidebar_shell(telemetry)
+    # Render Sidebar Shell with backend health
+    try:
+        health_info = get_health()
+    except Exception:
+        health_info = None
+    render_sidebar_shell(health_info)
 
     # Render Top Application Header
     machine_id = telemetry.get("machine_id", "ims_set2_rig") if telemetry else "ims_set2_rig"
-    render_global_header(active_machine_id=machine_id, telemetry_info=telemetry)
+    header_info = dict(telemetry) if telemetry else None
+    if header_info:
+        header_info["source_label"] = "BACKEND" if source == "backend" else "LOCAL FALLBACK"
+        header_info["is_stale"] = is_stale
+    render_global_header(active_machine_id=machine_id, telemetry_info=header_info)
 
     # --------------------------------------------------------
     # IF NO TELEMETRY DATA AVAILABLE YET
     # --------------------------------------------------------
     if telemetry is None:
-        awaiting_html = textwrap.dedent("""
+        if status == "no_telemetry":
+            card_title = "IDLE / WAITING FOR TELEMETRY"
+            card_color = "#F59E0B"
+            card_sub = f"Connected to backend at {BACKEND_URL}. Waiting for live telemetry stream..."
+            card_desc = "Backend is online and database is connected, but no telemetry snapshots have been published yet by the MQTT Bridge."
+        elif status == "backend_unavailable":
+            card_title = "BACKEND TEMPORARILY UNAVAILABLE"
+            card_color = "#EF4444"
+            card_sub = f"Flask backend at {BACKEND_URL} is currently unreachable."
+            card_desc = f"{stream_info.get('message', '')} The dashboard will automatically reconnect once the backend responds."
+        else:
+            card_title = "IDLE / NO TELEMETRY STREAM"
+            card_color = "#64748B"
+            card_sub = "No active telemetry found from backend or local data file."
+            card_desc = "Start the MQTT Bridge and Simulator to stream NASA IMS vibration data."
+
+        awaiting_html = textwrap.dedent(f"""
         <div class="ctrl-panel-highlight">
-            <div style="font-size: 1.1rem; font-weight: 800; color: #F59E0B; margin-bottom: 6px;">
-                IDLE / WAITING FOR TELEMETRY
+            <div style="font-size: 1.1rem; font-weight: 800; color: {card_color}; margin-bottom: 6px;">
+                {card_title}
             </div>
             <div style="font-size: 0.95rem; font-weight: 600; color: #F1F5F9; margin-bottom: 12px;">
-                Waiting for live telemetry stream...
+                {card_sub}
             </div>
             <div style="font-size: 0.82rem; color: #94A3B8; margin-bottom: 12px;">
-                No active live telemetry state found at <code>frontend/data/live_telemetry.json</code>.
+                {card_desc}
             </div>
             <div style="font-size: 0.78rem; color: #64748B;">
                 This dashboard automatically updates as soon as incoming vibration telemetry is received.<br>
@@ -105,6 +132,12 @@ def main():
         st.markdown(awaiting_html, unsafe_allow_html=True)
         render_footer()
         return
+
+    # Notification Banners for stream condition
+    if status == "backend_unavailable_fallback_used":
+        st.warning(f"⚠️ Remote backend at {BACKEND_URL} is unreachable. Displaying local telemetry fallback file.")
+    elif is_stale:
+        st.info(f"ℹ️ Telemetry stream idle or paused (last snapshot update was {age_str}).")
 
     # Extract Telemetry Fields
     snapshot_sequence = telemetry.get("snapshot_sequence", "N/A")
@@ -122,6 +155,16 @@ def main():
     is_out_of_order = ingestion.get("is_out_of_order", False)
     is_sequence_gap = ingestion.get("is_sequence_gap", False)
 
+    # Status Pill and Transport Labels
+    if is_stale:
+        status_pill_html = f'<span class="pill-watch"><span class="status-dot-watch"></span>STREAM IDLE ({age_str})</span>'
+    elif source == "backend":
+        status_pill_html = '<span class="pill-live"><span class="status-dot-live"></span>LIVE STREAM (BACKEND)</span>'
+    else:
+        status_pill_html = '<span class="pill-watch"><span class="status-dot-watch"></span>LOCAL FALLBACK</span>'
+
+    transport_label = "Remote Backend (Render)" if source == "backend" else "Local Data File"
+
     # --------------------------------------------------------
     # 1. MACHINE STATUS BAR & TIMING PANEL
     # --------------------------------------------------------
@@ -133,7 +176,7 @@ def main():
                 <span style="font-size: 0.82rem; color: #64748B; margin-left: 12px;">Target Dataset: <strong style="color: #00E5FF;">NASA IMS Bearing Set 2</strong></span>
             </div>
             <div>
-                <span class="pill-live"><span class="status-dot-live"></span>LIVE TELEMETRY</span>
+                {status_pill_html}
             </div>
         </div>
         <div style="
@@ -151,6 +194,8 @@ def main():
             <span>Snapshot Index: <strong style="color: #F1F5F9;">#{snapshot_sequence}</strong></span>
             <span>Source Telemetry Time: <strong style="color: #F1F5F9;">{orig_ts}</strong></span>
             <span>System Ingestion Time: <strong style="color: #F1F5F9;">{ingest_ts}</strong></span>
+            <span>Transport: <strong style="color: #00E5FF;">{transport_label}</strong></span>
+            <span>Last Update: <strong style="color: #F1F5F9;">{last_updated_str} ({age_str})</strong></span>
             <span>Telemetry Origin: <code style="color: #00E5FF;">{source_tag}</code></span>
         </div>
     </div>

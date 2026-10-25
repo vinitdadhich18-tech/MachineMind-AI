@@ -33,6 +33,7 @@ def create_app(config_class=Config) -> Flask:
     from backend.routes.predictions import predictions_bp
     from backend.routes.alerts import alerts_bp
     from backend.routes.data import data_bp
+    from backend.routes.telemetry import telemetry_bp
 
     app.register_blueprint(health_bp, url_prefix="/api")
     app.register_blueprint(inference_bp, url_prefix="/api")
@@ -40,6 +41,7 @@ def create_app(config_class=Config) -> Flask:
     app.register_blueprint(predictions_bp, url_prefix="/api")
     app.register_blueprint(alerts_bp, url_prefix="/api")
     app.register_blueprint(data_bp, url_prefix="/api")
+    app.register_blueprint(telemetry_bp, url_prefix="/api")
 
     # Initialize DB indexes and ensure canonical telemetry machine is registered
     from backend.utils.db import get_db, init_db_indexes

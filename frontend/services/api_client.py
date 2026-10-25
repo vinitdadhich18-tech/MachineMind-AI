@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional
 import requests
 import streamlit as st
 
-from frontend.utils.config import BACKEND_URL, READ_TIMEOUT, INFERENCE_TIMEOUT
+from frontend.utils.config import BACKEND_URL, READ_TIMEOUT, INFERENCE_TIMEOUT, TELEMETRY_TIMEOUT
 
 logger = logging.getLogger(__name__)
 
@@ -178,3 +178,25 @@ def update_alert_status(alert_id: str, status: str) -> Dict[str, Any]:
     res = _request("PATCH", f"alerts/{alert_id}", json_data={"status": status})
     st.cache_data.clear()
     return res
+
+
+def get_latest_telemetry(
+    machine_id: str = "ims_set2_rig",
+    timeout: int = TELEMETRY_TIMEOUT
+) -> Optional[Dict[str, Any]]:
+    """
+    GET /api/telemetry/latest?machine_id=<machine_id>
+    Uncached real-time telemetry query.
+    Returns:
+        dict: The latest telemetry state payload if available.
+        None: If backend returns 404 TELEMETRY_NOT_FOUND (no telemetry yet).
+    Raises:
+        ApiError: On network connection errors, timeouts, or backend errors.
+    """
+    try:
+        return _request("GET", "telemetry/latest", params={"machine_id": machine_id}, timeout=timeout)
+    except ApiError as err:
+        if err.code == "TELEMETRY_NOT_FOUND":
+            return None
+        raise
+

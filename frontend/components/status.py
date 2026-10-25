@@ -49,10 +49,19 @@ def render_global_header(
     """Renders compact top application bar for control-room UI."""
     mach_display = active_machine_id or "E2E NASA TEST RIG"
     if telemetry_info:
-        seq = telemetry_info.get("sequence_id")
-        status_text = f"ONLINE (SEQ #{seq})" if seq is not None else "ONLINE (ML v1)"
-        status_dot = "status-dot-normal"
-        status_color = "#10B981"
+        seq = telemetry_info.get("snapshot_sequence", telemetry_info.get("sequence_id"))
+        source_label = telemetry_info.get("source_label")
+        is_stale = telemetry_info.get("is_stale", False)
+
+        if is_stale:
+            status_text = f"STALE (SEQ #{seq})" if seq is not None else "STALE TELEMETRY"
+            status_dot = "status-dot-watch"
+            status_color = "#F59E0B"
+        else:
+            suffix = f" • {source_label}" if source_label else ""
+            status_text = f"ONLINE (SEQ #{seq}{suffix})" if seq is not None else f"ONLINE{suffix}"
+            status_dot = "status-dot-normal"
+            status_color = "#10B981"
     else:
         status_text = "IDLE / WAITING FOR TELEMETRY"
         status_dot = "status-dot-watch"

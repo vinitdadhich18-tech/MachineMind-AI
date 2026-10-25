@@ -19,12 +19,14 @@ frontend/data/live_telemetry.json
 Streamlit Dashboard
 """
 
+import os
 import json
 import sys
 import time
 import logging
 from pathlib import Path
 from threading import Lock
+import requests
 
 # Configure logging so Paho and IngestionConsumer diagnostic logs are visible in Docker stdout
 logging.basicConfig(
@@ -91,6 +93,85 @@ def reset_latest_written_sequence(machine_id = None):
         _latest_written_sequences.pop(machine_id, None)
     else:
         _latest_written_sequences.clear()
+
+
+# ============================================================
+# HTTP BACKEND FORWARDING
+# ============================================================
+
+BACKEND_URL = os.getenv("BACKEND_URL", "").rstrip("/")
+API_KEY = os.getenv("API_KEY", "").strip()
+FORWARD_TIMEOUT = float(os.getenv("TELEMETRY_FORWARD_TIMEOUT", "3.0"))
+
+
+def forward_state_to_backend(
+    state: dict,
+    backend_url: str | None = None,
+    api_key: str | None = None,
+    timeout: float = FORWARD_TIMEOUT
+) -> bool:
+    """
+    Forwards processed telemetry state dictionary to the Flask backend via POST /api/telemetry/live.
+
+    Security & Reliability:
+    - Never logs or exposes API keys or sensitive authorization headers.
+    - Uses a finite request timeout (default 3.0s).
+    - Catches all connection, timeout, and HTTP exceptions gracefully without raising,
+      ensuring MQTT consumption remains unblocked.
+    - Logs diagnostic warnings for rejected sequence numbers (HTTP 409) or auth issues (HTTP 401).
+    """
+    target_backend = (backend_url if backend_url is not None else os.getenv("BACKEND_URL", BACKEND_URL)).rstrip("/")
+    if not target_backend:
+        return False
+
+    url = f"{target_backend}/api/telemetry/live"
+    headers = {"Content-Type": "application/json"}
+
+    key = api_key if api_key is not None else os.getenv("API_KEY", API_KEY)
+    if key and key.strip():
+        headers["X-API-KEY"] = key.strip()
+
+    machine_id = state.get("machine_id", "unknown")
+    seq = state.get("snapshot_sequence", -1)
+
+    try:
+        response = requests.post(url, json=state, headers=headers, timeout=timeout)
+        if response.status_code == 200:
+            logger.info(
+                f"[TELEMETRY FORWARD OK] machine='{machine_id}' seq={seq} -> {url}"
+            )
+            return True
+        elif response.status_code == 409:
+            logger.warning(
+                f"[TELEMETRY FORWARD CONFLICT] HTTP 409: backend rejected sequence {seq} "
+                f"for machine '{machine_id}' (out of order or duplicate snapshot)."
+            )
+            return False
+        elif response.status_code == 401:
+            logger.error(
+                f"[TELEMETRY FORWARD AUTH ERROR] HTTP 401: backend rejected X-API-KEY. Verify API_KEY environment variable."
+            )
+            return False
+        else:
+            logger.warning(
+                f"[TELEMETRY FORWARD REJECTED] HTTP {response.status_code} from {url} for machine '{machine_id}' seq={seq}."
+            )
+            return False
+    except requests.exceptions.Timeout:
+        logger.warning(
+            f"[TELEMETRY FORWARD TIMEOUT] Request to {url} timed out after {timeout}s for machine '{machine_id}' seq={seq}."
+        )
+        return False
+    except requests.exceptions.ConnectionError:
+        logger.warning(
+            f"[TELEMETRY FORWARD CONNECTION FAILED] Unable to connect to backend at {target_backend}."
+        )
+        return False
+    except Exception as err:
+        logger.warning(
+            f"[TELEMETRY FORWARD ERROR] Unexpected error forwarding telemetry: {err}"
+        )
+        return False
 
 
 # ============================================================
@@ -250,6 +331,13 @@ def write_state(record):
                         0
                     )
                 ),
+
+                "is_replay_reset": bool(
+                    record.ingestion_metadata.get(
+                        "is_replay_reset",
+                        False
+                    )
+                ),
             },
 
             "dashboard_updated_at": time.time(),
@@ -305,6 +393,11 @@ def write_state(record):
             f"features={len(features)} "
             f"latency={latency}ms"
         )
+
+        # --------------------------------------------------------
+        # HTTP Backend Forwarding
+        # --------------------------------------------------------
+        forward_state_to_backend(state)
 
     except Exception as error:
 

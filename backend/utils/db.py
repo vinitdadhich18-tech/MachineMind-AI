@@ -82,6 +82,9 @@ def init_db_indexes(db: Database) -> None:
         db.alerts.create_index([("machine_id", ASCENDING), ("timestamp", DESCENDING)])
         db.alerts.create_index([("status", ASCENDING)])
 
+        # live_telemetry: unique index on machine_id
+        db.live_telemetry.create_index([("machine_id", ASCENDING)], unique=True)
+
         logger.info("MongoDB database indexes successfully created/verified.")
     except Exception as e:
         logger.warning(f"Failed to create database indexes: {e}")

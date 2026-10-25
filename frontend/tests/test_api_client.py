@@ -86,3 +86,42 @@ def test_api_client_non_json_response(mock_request):
 
     assert exc.value.code == "INVALID_RESPONSE"
     assert "Backend returned non-JSON response" in exc.value.message
+
+
+@patch("requests.request")
+def test_get_latest_telemetry_success(mock_request):
+    """Verifies get_latest_telemetry returns data on HTTP 200."""
+    from frontend.services.api_client import get_latest_telemetry
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.json.return_value = {
+        "success": True,
+        "data": {"machine_id": "ims_set2_rig", "snapshot_sequence": 10},
+        "error": None
+    }
+    mock_request.return_value = mock_resp
+
+    res = get_latest_telemetry("ims_set2_rig")
+    assert res is not None
+    assert res["machine_id"] == "ims_set2_rig"
+    assert res["snapshot_sequence"] == 10
+
+
+@patch("requests.request")
+def test_get_latest_telemetry_not_found_returns_none(mock_request):
+    """Verifies get_latest_telemetry returns None when backend responds with 404 TELEMETRY_NOT_FOUND."""
+    from frontend.services.api_client import get_latest_telemetry
+    mock_resp = MagicMock()
+    mock_resp.status_code = 404
+    mock_resp.json.return_value = {
+        "success": False,
+        "data": None,
+        "error": {
+            "code": "TELEMETRY_NOT_FOUND",
+            "message": "No telemetry recorded yet for machine 'ims_set2_rig'."
+        }
+    }
+    mock_request.return_value = mock_resp
+
+    res = get_latest_telemetry("ims_set2_rig")
+    assert res is None
