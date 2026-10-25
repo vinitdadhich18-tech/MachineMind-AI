@@ -42,6 +42,30 @@ def create_machine(machine_id: str, name: str, description: Optional[str] = None
     return serialize_machine(doc)
 
 
+def ensure_machine_registered(
+    machine_id: str,
+    name: Optional[str] = None,
+    description: Optional[str] = None
+) -> Dict[str, Any]:
+    """
+    Idempotently ensures a machine is registered in MongoDB.
+    If machine already exists, returns the existing serialized machine.
+    If not, creates and inserts a new machine document.
+    """
+    clean_id = validate_machine_id(machine_id)
+    db = get_database()
+
+    existing = db.machines.find_one({"machine_id": clean_id})
+    if existing:
+        return serialize_machine(existing)
+
+    default_name = name.strip() if name and name.strip() else clean_id.replace("_", " ").title()
+    doc = create_machine_doc(clean_id, default_name, description)
+    db.machines.insert_one(doc)
+    logger.info(f"Auto-registered telemetry machine machine_id='{clean_id}' ('{default_name}')")
+    return serialize_machine(doc)
+
+
 def get_machine(machine_id: str) -> Dict[str, Any]:
     """Retrieves machine details along with latest prediction summary and open alert count."""
     clean_id = validate_machine_id(machine_id)

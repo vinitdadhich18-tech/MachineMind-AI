@@ -1,0 +1,8 @@
+# MachineMind AI - MQTT & Signal Processing Runtime Dependencies
+numpy>=1.24.0
+pandas>=2.0.0
+scipy>=1.10.0
+scikit-learn>=1.2.0
+paho-mqtt>=2.0.0
+python-dotenv>=1.0.0
+requests>=2.28.0

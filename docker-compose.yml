@@ -1,0 +1,73 @@
+services:
+  streamlit:
+    build:
+      context: .
+      dockerfile: docker/streamlit.Dockerfile
+    image: machinemind-streamlit:latest
+    container_name: machinemind-streamlit
+    ports:
+      - "8501:8501"
+    environment:
+      - BACKEND_URL=http://backend:5000
+    volumes:
+      - telemetry-data:/app/frontend/data
+    depends_on:
+      - backend
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  backend:
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+    image: machinemind-backend:latest
+    container_name: machinemind-backend
+    ports:
+      - "5000:5000"
+    env_file:
+      - path: .env
+        required: false
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  mqtt-bridge:
+    build:
+      context: .
+      dockerfile: docker/mqtt.Dockerfile
+    image: machinemind-mqtt:latest
+    container_name: machinemind-mqtt-bridge
+    command: ["python", "ml-service/src/mqtt_dashboard_bridge.py"]
+    env_file:
+      - path: .env
+        required: false
+    volumes:
+      - telemetry-data:/app/frontend/data
+    restart: unless-stopped
+
+  simulator:
+    build:
+      context: .
+      dockerfile: docker/mqtt.Dockerfile
+    image: machinemind-mqtt:latest
+    container_name: machinemind-simulator
+    command: ["python", "ml-service/src/simulator.py", "--start-idx", "0", "--end-idx", "100", "--interval", "1.5", "--loop"]
+    env_file:
+      - path: .env
+        required: false
+    volumes:
+      - ./ml-service/data/raw:/app/ml-service/data/raw:ro
+    depends_on:
+      - mqtt-bridge
+    restart: unless-stopped
+
+volumes:
+  telemetry-data:
+    name: machinemind-telemetry-data

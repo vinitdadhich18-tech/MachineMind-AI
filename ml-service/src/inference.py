@@ -27,7 +27,7 @@ import sklearn
 
 from src.feature_extraction import extract_time_features
 
-DEFAULT_MODELS_DIR = Path("models")
+DEFAULT_MODELS_DIR = Path(__file__).resolve().parent.parent / "models"
 CHANNELS = ["ch1", "ch2", "ch3", "ch4"]
 
 

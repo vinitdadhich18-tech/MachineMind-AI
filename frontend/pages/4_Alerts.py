@@ -2,6 +2,14 @@
 4_Alerts.py - Operations Incident Console & Alert Management.
 """
 
+import sys
+from pathlib import Path
+
+# Ensure repository root is on sys.path so 'frontend' package imports resolve on Streamlit Cloud
+ROOT_DIR = Path(__file__).resolve().parents[2]
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+
 import streamlit as st
 from frontend.services.api_client import list_alerts, update_alert_status, list_machines, get_health, ApiError
 from frontend.components.theme import inject_theme

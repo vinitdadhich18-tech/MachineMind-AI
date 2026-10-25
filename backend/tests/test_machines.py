@@ -48,3 +48,35 @@ def test_machine_creation_validation_and_duplicate(client):
     res_404 = client.get("/api/machines/unknown_machine_99")
     assert res_404.status_code == 404
     assert res_404.get_json()["error"]["code"] == "MACHINE_NOT_FOUND"
+
+
+def test_ensure_machine_registered_idempotency(app):
+    """Verifies that ensure_machine_registered performs an idempotent upsert without creating duplicates."""
+    from backend.services.machine_service import ensure_machine_registered, list_machines
+
+    with app.app_context():
+        # 1. First call: registers machine
+        m1 = ensure_machine_registered(
+            machine_id="ims_set2_rig",
+            name="NASA IMS Bearing Test Rig",
+            description="NASA IMS Test rig"
+        )
+        assert m1["machine_id"] == "ims_set2_rig"
+        assert m1["name"] == "NASA IMS Bearing Test Rig"
+
+        # Verify only 1 machine in DB
+        machines_after_first = list_machines()
+        assert len(machines_after_first) == 1
+        assert machines_after_first[0]["machine_id"] == "ims_set2_rig"
+
+        # 2. Second call: idempotent (does not duplicate or raise 409)
+        m2 = ensure_machine_registered(
+            machine_id="ims_set2_rig",
+            name="NASA IMS Bearing Test Rig",
+            description="NASA IMS Test rig"
+        )
+        assert m2["machine_id"] == "ims_set2_rig"
+
+        # Must still be exactly 1 machine
+        machines_after_second = list_machines()
+        assert len(machines_after_second) == 1
