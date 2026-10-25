@@ -280,3 +280,28 @@ def test_get_telemetry_refresh_interval_ms():
     # 6. Overly aggressive config (e.g. 2s) is capped to minimum 10s for stale/idle data
     assert get_telemetry_refresh_interval_ms(telemetry=sample, is_stale=True, config_seconds=2) == 10000
     assert get_telemetry_refresh_interval_ms(telemetry=None, is_stale=False, config_seconds=2) == 10000
+
+
+def test_main_dashboard_fragment_and_toggle():
+    """Verifies that the main dashboard renders within Streamlit and unchecking auto-refresh succeeds."""
+    from streamlit.testing.v1 import AppTest
+
+    sample = make_sample_telemetry(sequence=99)
+    sample_stream = {
+        "telemetry": sample,
+        "source": "backend",
+        "status": "stale",
+        "is_stale": True,
+        "age_str": "1.5m ago",
+        "last_updated_str": "2026-10-25 12:00:00"
+    }
+
+    app_file = Path(__file__).parent.parent / "app.py"
+    with patch("frontend.app.get_health", return_value={"status": "ok", "service": "machinemind-backend"}), \
+         patch("frontend.app.load_live_telemetry", return_value=sample_stream):
+        at = AppTest.from_file(str(app_file))
+        at.run()
+        assert not at.exception
+        if at.sidebar.checkbox:
+            at.sidebar.checkbox[0].uncheck().run()
+            assert not at.exception
