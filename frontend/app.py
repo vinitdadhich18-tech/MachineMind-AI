@@ -32,7 +32,7 @@ from frontend.components.charts import (
     render_crest_factor_chart,
     render_spectral_centroid_chart
 )
-from frontend.utils.config import BACKEND_URL, get_backend_url
+from frontend.utils.config import BACKEND_URL, get_backend_url, TELEMETRY_REFRESH_SECONDS
 from frontend.services.api_client import get_health
 from frontend.services.telemetry_loader import fetch_telemetry_stream
 
@@ -47,6 +47,25 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+
+def get_telemetry_refresh_interval_ms(
+    telemetry: Optional[Dict[str, Any]] = None,
+    is_stale: bool = False,
+    config_seconds: Optional[int] = None
+) -> int:
+    """Calculates safe autorefresh interval in milliseconds.
+
+    Ensures stale or idle telemetry refreshes no more frequently than every 10 seconds,
+    and active telemetry respects TELEMETRY_REFRESH_SECONDS (default 10s, min 5s).
+    """
+    if config_seconds is None:
+        config_seconds = TELEMETRY_REFRESH_SECONDS
+
+    safe_seconds = max(int(config_seconds), 1)
+    if telemetry is None or is_stale:
+        return max(safe_seconds, 10) * 1000
+    return max(safe_seconds, 5) * 1000
 
 
 def load_live_telemetry(machine_id: str = "ims_set2_rig") -> Dict[str, Any]:
@@ -70,7 +89,7 @@ def main():
     with st.sidebar:
         auto_refresh = st.checkbox("Auto-Refresh Telemetry", value=True)
         if auto_refresh:
-            refresh_interval = 2000 if telemetry is not None else 3000
+            refresh_interval = get_telemetry_refresh_interval_ms(telemetry, is_stale)
             st_autorefresh(interval=refresh_interval, key="telemetry_autorefresh")
 
     # Render Sidebar Shell with backend health

@@ -254,3 +254,29 @@ def test_neither_remote_nor_local_available(mock_get_latest, tmp_path):
     assert res["telemetry"] is None
     assert res["source"] is None
     assert res["status"] == "backend_unavailable"
+
+
+def test_get_telemetry_refresh_interval_ms():
+    """Verifies safe autorefresh intervals for live, stale, and idle telemetry states."""
+    from frontend.app import get_telemetry_refresh_interval_ms
+
+    sample = make_sample_telemetry()
+
+    # 1. Default (10 seconds) - live telemetry
+    assert get_telemetry_refresh_interval_ms(telemetry=sample, is_stale=False, config_seconds=10) == 10000
+
+    # 2. Default - stale telemetry (guaranteed >= 10s)
+    assert get_telemetry_refresh_interval_ms(telemetry=sample, is_stale=True, config_seconds=10) == 10000
+
+    # 3. Default - idle telemetry (no data, guaranteed >= 10s)
+    assert get_telemetry_refresh_interval_ms(telemetry=None, is_stale=False, config_seconds=10) == 10000
+
+    # 4. Configured higher interval (e.g. 15s)
+    assert get_telemetry_refresh_interval_ms(telemetry=sample, is_stale=False, config_seconds=15) == 15000
+
+    # 5. Overly aggressive config (e.g. 2s) is capped to minimum 5s for live data
+    assert get_telemetry_refresh_interval_ms(telemetry=sample, is_stale=False, config_seconds=2) == 5000
+
+    # 6. Overly aggressive config (e.g. 2s) is capped to minimum 10s for stale/idle data
+    assert get_telemetry_refresh_interval_ms(telemetry=sample, is_stale=True, config_seconds=2) == 10000
+    assert get_telemetry_refresh_interval_ms(telemetry=None, is_stale=False, config_seconds=2) == 10000

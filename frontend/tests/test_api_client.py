@@ -167,3 +167,15 @@ def test_get_config_val_secrets_and_casing(monkeypatch):
     mock_secrets = {"general": {"custom_key": "https://secret-url.example.com"}}
     monkeypatch.setattr(st, "secrets", mock_secrets)
     assert get_config_val("CUSTOM_KEY", "default") == "https://secret-url.example.com"
+
+
+def test_telemetry_refresh_seconds_config(monkeypatch):
+    """Verifies TELEMETRY_REFRESH_SECONDS defaults to 10 and respects overrides."""
+    from frontend.utils.config import get_config_val
+
+    monkeypatch.delenv("TELEMETRY_REFRESH_SECONDS", raising=False)
+    monkeypatch.delenv("telemetry_refresh_seconds", raising=False)
+    assert int(get_config_val("TELEMETRY_REFRESH_SECONDS", "10")) == 10
+
+    monkeypatch.setenv("TELEMETRY_REFRESH_SECONDS", "15")
+    assert int(get_config_val("TELEMETRY_REFRESH_SECONDS", "10")) == 15

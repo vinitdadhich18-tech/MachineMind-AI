@@ -46,5 +46,6 @@ READ_TIMEOUT = int(get_config_val("READ_TIMEOUT", "10"))
 INFERENCE_TIMEOUT = int(get_config_val("INFERENCE_TIMEOUT", "60"))
 TELEMETRY_TIMEOUT = int(get_config_val("TELEMETRY_TIMEOUT", "10"))
 TELEMETRY_STALE_SECONDS = float(get_config_val("TELEMETRY_STALE_SECONDS", "30.0"))
+TELEMETRY_REFRESH_SECONDS = int(get_config_val("TELEMETRY_REFRESH_SECONDS", "10"))
 
 print(f"MachineMind backend configured: {BACKEND_URL}")
