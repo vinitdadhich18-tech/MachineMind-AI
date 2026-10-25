@@ -19,14 +19,15 @@ def get_backend_url():
     if not backend_url:
         try:
             import streamlit as st
-            backend_url = st.secrets.get("BACKEND_URL", None)
+            backend_url = st.secrets.get("BACKEND_URL")
         except Exception:
             backend_url = None
 
-    # Keep local development working by default
     return (backend_url or "http://localhost:5000").rstrip("/")
 
 
 BACKEND_URL = get_backend_url()
 READ_TIMEOUT = int(os.getenv("READ_TIMEOUT", "10"))
 INFERENCE_TIMEOUT = int(os.getenv("INFERENCE_TIMEOUT", "60"))
+
+print(f"MachineMind backend configured: {BACKEND_URL}")
