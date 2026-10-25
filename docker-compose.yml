@@ -1,35 +1,51 @@
-# ===================================================================
-# MachineMind AI — Local Infrastructure Definition
-# ===================================================================
-# Local reproduciblity stack for InfluxDB v2 (Time-Series Database)
-# and Grafana (Monitoring UI, added in Phase 7).
-# Note: MQTT Transport uses HiveMQ Cloud over TLS (no local broker needed).
-# ===================================================================
-
-version: '3.8'
-
 services:
-  influxdb:
-    image: influxdb:2.7
-    container_name: machinemind-influxdb
-    restart: unless-stopped
+  streamlit:
+    build:
+      context: .
+      dockerfile: docker/streamlit.Dockerfile
+    image: machinemind-streamlit:latest
+    container_name: machinemind-streamlit
     ports:
-      - "8086:8086"
-    environment:
-      - DOCKER_INFLUXDB_INIT_MODE=setup
-      - DOCKER_INFLUXDB_INIT_USERNAME=${INFLUXDB_INIT_USER:-admin}
-      - DOCKER_INFLUXDB_INIT_PASSWORD=${INFLUXDB_INIT_PASSWORD:-machinemind12345}
-      - DOCKER_INFLUXDB_INIT_ORG=${INFLUXDB_ORG:-machinemind_org}
-      - DOCKER_INFLUXDB_INIT_BUCKET=${INFLUXDB_BUCKET:-machinemind_telemetry}
-      - DOCKER_INFLUXDB_INIT_RETENTION=30d
-      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=${INFLUXDB_TOKEN:-your_influxdb_token_here}
+      - "8501:8501"
     volumes:
-      - influxdb-data:/var/lib/influxdb2
+      - telemetry-data:/app/frontend/data
+    restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8086/health"]
-      interval: 5s
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 3
+
+  mqtt-bridge:
+    build:
+      context: .
+      dockerfile: docker/mqtt.Dockerfile
+    image: machinemind-mqtt:latest
+    container_name: machinemind-mqtt-bridge
+    command: ["python", "ml-service/src/mqtt_dashboard_bridge.py"]
+    env_file:
+      - path: .env
+        required: false
+    volumes:
+      - telemetry-data:/app/frontend/data
+    restart: unless-stopped
+
+  simulator:
+    build:
+      context: .
+      dockerfile: docker/mqtt.Dockerfile
+    image: machinemind-mqtt:latest
+    container_name: machinemind-simulator
+    command: ["python", "ml-service/src/simulator.py", "--start-idx", "0", "--end-idx", "100", "--interval", "1.5", "--loop"]
+    env_file:
+      - path: .env
+        required: false
+    volumes:
+      - ./ml-service/data/raw:/app/ml-service/data/raw:ro
+    depends_on:
+      - mqtt-bridge
+    restart: unless-stopped
 
 volumes:
-  influxdb-data:
+  telemetry-data:
+    name: machinemind-telemetry-data

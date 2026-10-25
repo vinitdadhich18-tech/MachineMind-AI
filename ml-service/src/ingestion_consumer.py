@@ -106,18 +106,20 @@ class TelemetryIngestionConsumer:
     def __init__(
         self,
         config: MQTTConfig,
-        record_callback: Optional[Callable[[TelemetryRecord], None]] = None
+        record_callback: Optional[Callable[[TelemetryRecord], None]] = None,
+        clean_session: Optional[bool] = None
     ):
         self.config = config
         self.record_callback = record_callback
         self.metrics = ConsumerMetrics()
         self.client = None
         self.is_connected = False
-        
+        self.clean_session = clean_session if clean_session is not None else getattr(config, "clean_session", True)
+
         # Per-machine sequence state for idempotency and ordering
         # machine_id -> last_sequence_int
         self._last_sequences: Dict[str, int] = {}
-        
+
         # Buffer to keep track of processed sequence IDs for windowed duplicate detection
         # machine_id -> set of sequence ints
         self._seen_sequences: Dict[str, set] = {}
@@ -125,21 +127,48 @@ class TelemetryIngestionConsumer:
     def _on_connect(self, client, userdata, flags, reason_code, properties=None):
         self.is_connected = True
         self.metrics.reconnection_events += 1
-        
+
         telemetry_topic = f"{self.config.topic_prefix}/telemetry/+"
         status_topic = f"{self.config.topic_prefix}/status/+"
 
         client.subscribe(telemetry_topic, qos=self.config.qos)
         client.subscribe(status_topic, qos=self.config.qos)
-        
+
         logger.info(
             f"Consumer successfully connected to HiveMQ Cloud. "
             f"Subscribed to '{telemetry_topic}' and '{status_topic}' (QoS {self.config.qos})."
         )
 
-    def _on_disconnect(self, client, userdata, flags, reason_code, properties=None):
+    def _on_disconnect(self, client, userdata, flags, reason_code=None, properties=None):
         self.is_connected = False
-        logger.warning(f"Consumer disconnected from MQTT broker (reason_code={reason_code}). Reconnect backoff active.")
+
+        client_id = getattr(client, "_client_id", "unknown")
+        if isinstance(client_id, bytes):
+            client_id = client_id.decode("utf-8", errors="ignore")
+
+        rc_val = getattr(reason_code, "value", reason_code)
+        is_failure = getattr(reason_code, "is_failure", None)
+
+        reason_string = getattr(properties, "ReasonString", None) if properties else None
+        user_props = getattr(properties, "UserProperty", None) if properties else None
+
+        diag_parts = [
+            f"client_id='{client_id}'",
+            f"reason_code={reason_code} (value={rc_val})",
+        ]
+        if is_failure is not None:
+            diag_parts.append(f"is_failure={is_failure}")
+        if flags is not None:
+            diag_parts.append(f"flags={flags}")
+        if reason_string:
+            diag_parts.append(f"reason_string='{reason_string}'")
+        if user_props:
+            diag_parts.append(f"user_properties={user_props}")
+
+        logger.warning(
+            f"Consumer disconnected from MQTT broker. "
+            f"[{', '.join(diag_parts)}]. Reconnect backoff active."
+        )
 
     def _on_message(self, client, userdata, msg):
         start_time = time.time()
@@ -180,7 +209,7 @@ class TelemetryIngestionConsumer:
             machine_id = payload_dict["machine_id"]
             seq = payload_dict["snapshot_sequence"]
             orig_ts = payload_dict["original_timestamp"]
-            
+
             is_duplicate = False
             is_out_of_order = False
             is_gap = False
@@ -273,7 +302,7 @@ class TelemetryIngestionConsumer:
             return False
 
         client_id = f"machinemind-ingest-{self.config.machine_id}"
-        self.client = create_mqtt_client(self.config, client_id=client_id, clean_session=False)
+        self.client = create_mqtt_client(self.config, client_id=client_id, clean_session=self.clean_session)
 
         self.client.on_connect = self._on_connect
         self.client.on_disconnect = self._on_disconnect

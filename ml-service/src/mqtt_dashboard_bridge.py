@@ -22,8 +22,16 @@ Streamlit Dashboard
 import json
 import sys
 import time
+import logging
 from pathlib import Path
 from threading import Lock
+
+# Configure logging so Paho and IngestionConsumer diagnostic logs are visible in Docker stdout
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+)
+logger = logging.getLogger("MachineMind.DashboardBridge")
 
 
 # ============================================================
@@ -52,10 +60,37 @@ from src.canonical_feature_pipeline import CanonicalFeaturePipeline
 
 
 # ============================================================
-# THREAD SAFETY
+# THREAD SAFETY & SEQUENCE STATE TRACKING
 # ============================================================
 
 state_lock = Lock()
+_latest_written_sequences: dict[str, int] = {}
+
+
+def get_latest_written_sequence(machine_id: str) -> int:
+    """Returns the latest sequence written to dashboard state for machine_id."""
+    global _latest_written_sequences
+    if machine_id in _latest_written_sequences:
+        return _latest_written_sequences[machine_id]
+    if STATE_FILE.exists():
+        try:
+            with open(STATE_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                if data.get("machine_id") == machine_id:
+                    _latest_written_sequences[machine_id] = int(data.get("snapshot_sequence", -1))
+                    return _latest_written_sequences[machine_id]
+        except Exception:
+            pass
+    return -1
+
+
+def reset_latest_written_sequence(machine_id = None):
+    """Resets in-memory sequence tracker (useful for testing or replay reset)."""
+    global _latest_written_sequences
+    if machine_id:
+        _latest_written_sequences.pop(machine_id, None)
+    else:
+        _latest_written_sequences.clear()
 
 
 # ============================================================
@@ -68,6 +103,25 @@ def write_state(record):
     consumer, extracts the canonical 36-feature vector, and writes
     a lightweight JSON state file for the Streamlit dashboard.
     """
+    # --------------------------------------------------------
+    # Regression & Idempotency Guard:
+    # Do not let duplicate or older out-of-order telemetry
+    # overwrite newer dashboard state.
+    # --------------------------------------------------------
+    if record.ingestion_metadata.get("is_duplicate", False):
+        logger.warning(
+            f"[DASHBOARD GUARD] Skipping duplicate sequence {record.snapshot_sequence} "
+            f"for machine '{record.machine_id}'."
+        )
+        return
+
+    current_seq = get_latest_written_sequence(record.machine_id)
+    if current_seq >= 0 and record.snapshot_sequence < current_seq and record.snapshot_sequence != 0:
+        logger.warning(
+            f"[DASHBOARD REGRESSION GUARD] Ignoring older sequence {record.snapshot_sequence} "
+            f"for machine '{record.machine_id}' (dashboard is currently at sequence {current_seq})."
+        )
+        return
 
     try:
         # --------------------------------------------------------
@@ -230,6 +284,8 @@ def write_state(record):
             temp_file.replace(
                 STATE_FILE
             )
+
+            _latest_written_sequences[record.machine_id] = int(record.snapshot_sequence)
 
         # --------------------------------------------------------
         # Console confirmation

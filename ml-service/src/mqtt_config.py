@@ -43,9 +43,12 @@ class MQTTConfig:
         self.topic_prefix: str = os.getenv("MQTT_TOPIC_PREFIX", "machinemind/v1").strip("/")
         self.machine_id: str = os.getenv("MQTT_MACHINE_ID", "ims_set2_rig").strip()
         self.qos: int = int(os.getenv("MQTT_QOS", "1"))
-        
+
         use_tls_str = os.getenv("MQTT_USE_TLS", "true").lower()
         self.use_tls: bool = use_tls_str in ("1", "true", "yes", "on")
+
+        clean_session_str = os.getenv("MQTT_CLEAN_SESSION", "true").lower()
+        self.clean_session: bool = clean_session_str in ("1", "true", "yes", "on")
 
     def is_configured(self) -> bool:
         """Checks if minimum required connection parameters are set and non-placeholder."""
@@ -61,6 +64,7 @@ class MQTTConfig:
             "broker_port": self.broker_port,
             "username": masked_user,
             "use_tls": self.use_tls,
+            "clean_session": self.clean_session,
             "topic_prefix": self.topic_prefix,
             "machine_id": self.machine_id,
             "qos": self.qos,
@@ -127,5 +131,27 @@ def create_mqtt_client(
 
     # Set default reconnect backoff bounds (min 1 sec, max 120 sec)
     client.reconnect_delay_set(min_delay=1, max_delay=120)
+
+    # Attach diagnostic on_log callback for socket/network troubleshooting
+    def _on_log(client_obj, userdata, level, buf):
+        level_map = {
+            mqtt.MQTT_LOG_INFO: "INFO",
+            mqtt.MQTT_LOG_NOTICE: "NOTICE",
+            mqtt.MQTT_LOG_WARNING: "WARNING",
+            mqtt.MQTT_LOG_ERR: "ERROR",
+            mqtt.MQTT_LOG_DEBUG: "DEBUG",
+        }
+        lvl_str = level_map.get(level, str(level))
+        clean_buf = buf
+        if config.password and config.password in clean_buf:
+            clean_buf = clean_buf.replace(config.password, "***REDACTED***")
+
+        log_msg = f"[PAHO] level={lvl_str} message={clean_buf}"
+        if level in (mqtt.MQTT_LOG_ERR, mqtt.MQTT_LOG_WARNING):
+            logger.warning(log_msg)
+        else:
+            logger.info(log_msg)
+
+    client.on_log = _on_log
 
     return client

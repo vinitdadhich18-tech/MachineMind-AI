@@ -1,0 +1,52 @@
+# Version control
+.git
+.gitignore
+
+# Environment files & secrets
+.env
+.env.*
+!.env.example
+
+# Virtual environments
+venv/
+.venv/
+ml-service/venv/
+ml-service/.venv/
+backend/venv/
+backend/.venv/
+
+# Python bytecode & cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Heavy datasets (mounted via docker-compose volume for simulator)
+ml-service/data/raw/
+ml-service/data/processed/
+data/raw/
+data/processed/
+
+# Generated model artifacts & reports
+models/*.joblib
+models/*.pkl
+ml-service/reports/*
+!ml-service/reports/.gitkeep
+
+# Runtime dashboard state
+frontend/data/*
+!frontend/data/.gitkeep
+
+# IDE & system files
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Documentation prompt packs
+*.md
