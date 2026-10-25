@@ -32,7 +32,7 @@ from frontend.components.charts import (
     render_crest_factor_chart,
     render_spectral_centroid_chart
 )
-from frontend.utils.config import BACKEND_URL
+from frontend.utils.config import BACKEND_URL, get_backend_url
 from frontend.services.api_client import get_health
 from frontend.services.telemetry_loader import fetch_telemetry_stream
 
@@ -95,12 +95,12 @@ def main():
         if status == "no_telemetry":
             card_title = "IDLE / WAITING FOR TELEMETRY"
             card_color = "#F59E0B"
-            card_sub = f"Connected to backend at {BACKEND_URL}. Waiting for live telemetry stream..."
+            card_sub = f"Connected to backend at {get_backend_url()}. Waiting for live telemetry stream..."
             card_desc = "Backend is online and database is connected, but no telemetry snapshots have been published yet by the MQTT Bridge."
         elif status == "backend_unavailable":
             card_title = "BACKEND TEMPORARILY UNAVAILABLE"
             card_color = "#EF4444"
-            card_sub = f"Flask backend at {BACKEND_URL} is currently unreachable."
+            card_sub = f"Flask backend at {get_backend_url()} is currently unreachable."
             card_desc = f"{stream_info.get('message', '')} The dashboard will automatically reconnect once the backend responds."
         else:
             card_title = "IDLE / NO TELEMETRY STREAM"
@@ -135,7 +135,7 @@ def main():
 
     # Notification Banners for stream condition
     if status == "backend_unavailable_fallback_used":
-        st.warning(f"⚠️ Remote backend at {BACKEND_URL} is unreachable. Displaying local telemetry fallback file.")
+        st.warning(f"⚠️ Remote backend at {get_backend_url()} is unreachable. Displaying local telemetry fallback file.")
     elif is_stale:
         st.info(f"ℹ️ Telemetry stream idle or paused (last snapshot update was {age_str}).")
 

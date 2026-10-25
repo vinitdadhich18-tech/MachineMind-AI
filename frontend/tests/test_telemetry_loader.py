@@ -93,6 +93,22 @@ def test_validate_telemetry_payload_invalid_structure():
     assert validate_telemetry_payload(bad_val) is None
 
 
+def test_validate_telemetry_payload_float_coercion():
+    """Verifies that float sequence numbers and channel IDs from JSON/DB are normalized to int."""
+    sample = make_sample_telemetry()
+    sample["snapshot_sequence"] = 99.0
+    for ch in sample["channels"]:
+        ch["channel"] = float(ch["channel"])
+
+    validated = validate_telemetry_payload(sample)
+    assert validated is not None
+    assert isinstance(validated["snapshot_sequence"], int)
+    assert validated["snapshot_sequence"] == 99
+    for ch in validated["channels"]:
+        assert isinstance(ch["channel"], int)
+
+
+
 def test_calculate_telemetry_age():
     """Calculates age correctly and flags staleness beyond threshold."""
     now = 1000.0

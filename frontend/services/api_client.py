@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional
 import requests
 import streamlit as st
 
-from frontend.utils.config import BACKEND_URL, READ_TIMEOUT, INFERENCE_TIMEOUT, TELEMETRY_TIMEOUT
+from frontend.utils.config import BACKEND_URL, get_backend_url, READ_TIMEOUT, INFERENCE_TIMEOUT, TELEMETRY_TIMEOUT
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +35,8 @@ def _request(
     timeout: int = READ_TIMEOUT
 ) -> Dict[str, Any]:
     """Helper method executing HTTP request and parsing standard backend JSON envelope."""
-    url = f"{BACKEND_URL}/api/{endpoint.lstrip('/')}"
+    base_url = get_backend_url()
+    url = f"{base_url}/api/{endpoint.lstrip('/')}"
 
     try:
         response = requests.request(
@@ -50,7 +51,7 @@ def _request(
     except requests.exceptions.ConnectionError:
         raise ApiError(
             code="CONNECTION_ERROR",
-            message=f"Backend server is unreachable at {BACKEND_URL}. Please ensure Flask backend is running.",
+            message=f"Backend server is unreachable at {base_url}. Please ensure Flask backend is running.",
             details={"url": url}
         )
     except requests.exceptions.Timeout:

@@ -12,6 +12,7 @@ from typing import Any, Dict, Optional, Tuple
 
 from frontend.utils.config import (
     BACKEND_URL,
+    get_backend_url,
     TELEMETRY_TIMEOUT,
     TELEMETRY_STALE_SECONDS
 )
@@ -42,8 +43,9 @@ def validate_telemetry_payload(data: Any) -> Optional[Dict[str, Any]]:
 
     # snapshot_sequence
     seq = data.get("snapshot_sequence")
-    if seq is None or isinstance(seq, bool) or not isinstance(seq, int) or seq < 0:
+    if seq is None or isinstance(seq, bool) or not isinstance(seq, (int, float)) or seq < 0:
         return None
+    data["snapshot_sequence"] = int(seq)
 
     # channels
     channels = data.get("channels")
@@ -54,8 +56,9 @@ def validate_telemetry_payload(data: Any) -> Optional[Dict[str, Any]]:
         if not isinstance(ch, dict):
             return None
         ch_num = ch.get("channel")
-        if isinstance(ch_num, bool) or not isinstance(ch_num, int) or ch_num not in (1, 2, 3, 4):
+        if isinstance(ch_num, bool) or not isinstance(ch_num, (int, float)) or int(ch_num) not in (1, 2, 3, 4):
             return None
+        ch["channel"] = int(ch_num)
         for m in REQUIRED_METRICS:
             val = ch.get(m)
             if isinstance(val, bool) or not isinstance(val, (int, float)) or not math.isfinite(val):
@@ -234,7 +237,7 @@ def fetch_telemetry_stream(
             "age_seconds": None,
             "age_str": None,
             "last_updated_str": None,
-            "message": f"Connected to backend at {BACKEND_URL}. Waiting for live telemetry stream from MQTT bridge...",
+            "message": f"Connected to backend at {get_backend_url()}. Waiting for live telemetry stream from MQTT bridge...",
             "error": None
         }
     elif remote_error:
@@ -246,7 +249,7 @@ def fetch_telemetry_stream(
             "age_seconds": None,
             "age_str": None,
             "last_updated_str": None,
-            "message": f"Flask backend at {BACKEND_URL} is currently unreachable ({remote_error}).",
+            "message": f"Flask backend at {get_backend_url()} is currently unreachable ({remote_error}).",
             "error": remote_error
         }
     else:
