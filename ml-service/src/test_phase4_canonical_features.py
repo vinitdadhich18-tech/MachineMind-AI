@@ -19,7 +19,16 @@ ML_SERVICE_DIR = Path(__file__).resolve().parent.parent
 if str(ML_SERVICE_DIR) not in sys.path:
     sys.path.insert(0, str(ML_SERVICE_DIR))
 
-from src.data_loading import DEFAULT_RAW_SET2_PATH
+from src.data_loading import (
+    DEFAULT_RAW_SET2_PATH,
+    load_snapshot,
+    parse_snapshot_timestamp,
+)
+from src.telemetry_schema import (
+    build_telemetry_payload,
+    serialize_payload,
+    EXPECTED_SAMPLE_COUNT,
+)
 from src.ingestion_consumer import TelemetryRecord, TelemetryIngestionConsumer
 from src.mqtt_config import MQTTConfig
 from src.simulator import TelemetrySimulator
@@ -138,11 +147,93 @@ def test_no_future_data_leakage():
     np.testing.assert_array_equal(v_t_original.feature_values, v_t_recomputed.feature_values)
 
 
+def test_offline_simulator_to_consumer_to_pipeline_integration():
+    """
+    Offline End-to-End Integration Test:
+    TelemetrySimulator snapshot -> Wire JSON serialization -> TelemetryIngestionConsumer
+    deserialization & validation -> CanonicalFeaturePipeline -> CanonicalFeatureVector.
+
+    Exercises the full end-to-end telemetry pipeline completely offline without
+    external broker network dependencies.
+    """
+    mqtt_cfg = MQTTConfig()
+
+    # 1. Load real NASA IMS snapshot if available, otherwise synthetic fallback
+    if DEFAULT_RAW_SET2_PATH.exists():
+        simulator = TelemetrySimulator(config=mqtt_cfg, raw_dir=DEFAULT_RAW_SET2_PATH)
+        assert len(simulator.snapshot_files) > 0
+        first_file = simulator.snapshot_files[0]
+        orig_timestamp = parse_snapshot_timestamp(first_file)
+        raw_snapshot = load_snapshot(first_file)
+    else:
+        np.random.seed(42)
+        raw_snapshot = np.random.normal(0, 0.05, size=(EXPECTED_SAMPLE_COUNT, 4))
+        orig_timestamp = "2004-02-12T10:32:39Z"
+
+    # 2. Build and serialize telemetry payload (real wire format)
+    sequence_num = 0
+    payload_dict = build_telemetry_payload(
+        raw_snapshot=raw_snapshot,
+        machine_id=mqtt_cfg.machine_id,
+        snapshot_sequence=sequence_num,
+        original_timestamp=orig_timestamp,
+        sampling_rate_hz=20480.0,
+    )
+    json_bytes = serialize_payload(payload_dict).encode("utf-8")
+
+    # 3. Wire consumer callback directly to canonical feature pipeline
+    pipeline = CanonicalFeaturePipeline(sampling_rate_hz=20480.0)
+    extracted_vectors: list[CanonicalFeatureVector] = []
+
+    def on_record(record: TelemetryRecord):
+        vector = pipeline.process_telemetry_record(record)
+        extracted_vectors.append(vector)
+
+    consumer = TelemetryIngestionConsumer(config=mqtt_cfg, record_callback=on_record)
+
+    # 4. Deliver message via consumer handler using mocked MQTT message packet
+    mock_mqtt_msg = MagicMock()
+    mock_mqtt_msg.topic = mqtt_cfg.get_telemetry_topic()
+    mock_mqtt_msg.payload = json_bytes
+    mock_mqtt_msg.qos = 1
+    mock_mqtt_msg.retain = False
+
+    consumer._on_message(None, None, mock_mqtt_msg)
+
+    # 5. Assertions verifying the end-to-end pipeline output
+    assert len(extracted_vectors) == 1
+    vector = extracted_vectors[0]
+
+    # Verify 36 canonical features
+    assert len(vector.feature_names) == 36
+    assert vector.feature_names == CANONICAL_FEATURE_NAMES
+    assert vector.feature_values.shape == (36,)
+    assert vector.validate_finite() is True
+
+    # Verify metadata and sequence info
+    assert vector.machine_id == mqtt_cfg.machine_id
+    assert vector.snapshot_sequence == sequence_num
+    assert vector.sampling_rate_hz == 20480.0
+
+    # Verify DataFrame representation (1 row, 5 metadata cols + 36 feature cols)
+    df_row = vector.to_dataframe()
+    assert isinstance(df_row, pd.DataFrame)
+    assert len(df_row) == 1
+    assert df_row["machine_id"].iloc[0] == mqtt_cfg.machine_id
+    assert df_row["snapshot_sequence"].iloc[0] == sequence_num
+    for name in CANONICAL_FEATURE_NAMES:
+        assert name in df_row.columns
+        assert np.isfinite(df_row[name].iloc[0])
+
+
 def test_real_mqtt_to_canonical_feature_pipeline_integration():
     """
     Real Integration Test:
     NASA IMS snapshot -> TelemetrySimulator -> HiveMQ Cloud over TLS -> Consumer -> TelemetryRecord -> CanonicalFeaturePipeline
     """
+    if os.getenv("RUN_LIVE_MQTT_TESTS", "").lower() not in ("true", "1", "yes"):
+        pytest.skip("Live HiveMQ Cloud integration test requires RUN_LIVE_MQTT_TESTS=true")
+
     mqtt_cfg = MQTTConfig()
     if not mqtt_cfg.is_configured():
         pytest.skip("MQTTConfig unconfigured. Skipping live HiveMQ Cloud test.")

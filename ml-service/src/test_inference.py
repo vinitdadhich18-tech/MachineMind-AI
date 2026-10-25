@@ -19,21 +19,27 @@ Verifies:
 
 import json
 from pathlib import Path
+import sys
 import unittest
 from unittest.mock import MagicMock
+
+# Add project root to sys.path
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 import numpy as np
 import pandas as pd
 
 from src.data_loading import DEFAULT_RAW_SET2_PATH, get_snapshot_files, load_snapshot
-from src.inference import CHANNELS, AnomalyInferenceEngine
+from src.inference import CHANNELS, DEFAULT_MODELS_DIR, AnomalyInferenceEngine
 
 
 class TestAnomalyInferenceEngine(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         """Load real packaged metadata and create sample valid snapshot array (20480, 4)."""
-        cls.models_dir = Path("models")
+        cls.models_dir = DEFAULT_MODELS_DIR
         meta_path = cls.models_dir / "model_metadata.json"
         with open(meta_path, "r", encoding="utf-8") as f:
             cls.metadata = json.load(f)
@@ -270,7 +276,7 @@ class TestAnomalyInferenceEngine(unittest.TestCase):
     def test_reference_score_consistency(self):
         """Compare inference engine scores on real raw snapshots 0..4 against reference pipeline scores from features_set2.csv."""
         files = get_snapshot_files(DEFAULT_RAW_SET2_PATH)
-        df_csv = pd.read_csv("data/processed/features_set2.csv")
+        df_csv = pd.read_csv(self.models_dir.parent / "data" / "processed" / "features_set2.csv")
 
         max_diff_iforest = 0.0
         max_diff_pca = 0.0
