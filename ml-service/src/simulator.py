@@ -11,6 +11,7 @@ Honesty Principle: Data is explicitly identified as 'replayed_nasa_ims'.
 Security Principle: Credentials loaded safely from environment. Zero secrets logged.
 """
 
+import os
 import sys
 import time
 import signal
@@ -34,8 +35,10 @@ from src.data_loading import (
 from src.mqtt_config import MQTTConfig, create_mqtt_client
 from src.telemetry_schema import (
     build_telemetry_payload,
+    build_compact_telemetry_payload,
     serialize_payload,
 )
+from src.canonical_feature_pipeline import CanonicalFeaturePipeline
 
 # Setup logging
 logging.basicConfig(
@@ -48,19 +51,35 @@ logger = logging.getLogger("MachineMind.Simulator")
 class TelemetrySimulator:
     """
     NASA IMS Chronological Telemetry Replay Engine.
+
+    Honesty Principle: Replayed historical NASA IMS bearing dataset, explicitly marked as 'replayed_nasa_ims'.
+    Not a live physical sensor acquisition.
+    Bandwidth Optimization: Supports 'compact' format (v2.0, ~1.2 KB) extracting canonical features at the edge,
+    reducing bandwidth by >99.7% while preserving the exact 36-feature pipeline contract.
     """
 
     def __init__(
         self,
         config: MQTTConfig,
         raw_dir: Path | None = None,
-        publish_interval: float = 1.0
+        publish_interval: float | None = None,
+        payload_format: str = "compact"
     ):
         self.config = config
         self.raw_dir = Path(raw_dir) if raw_dir else DEFAULT_RAW_SET2_PATH
-        self.publish_interval = max(0.01, float(publish_interval))
+
+        env_interval = float(os.getenv("SIMULATOR_PUBLISH_INTERVAL", "5.0"))
+        interval = publish_interval if publish_interval is not None else env_interval
+        self.publish_interval = max(0.01, float(interval))
+
+        env_format = os.getenv("SIMULATOR_PAYLOAD_FORMAT", "compact").lower().strip()
+        self.payload_format = (payload_format or env_format).lower().strip()
+        if self.payload_format not in ("compact", "raw"):
+            raise ValueError(f"Unsupported payload format '{self.payload_format}'. Must be 'compact' or 'raw'.")
+
         self.running = False
         self.client = None
+        self.canonical_pipeline = CanonicalFeaturePipeline(sampling_rate_hz=20480.0)
 
         if not self.raw_dir.exists():
             raise FileNotFoundError(f"Raw IMS dataset directory not found at: {self.raw_dir}")
@@ -71,7 +90,7 @@ class TelemetrySimulator:
 
         logger.info(
             f"Initialized TelemetrySimulator with {len(self.snapshot_files)} snapshots. "
-            f"Cadence: {self.publish_interval}s per snapshot."
+            f"Format: {self.payload_format}, Cadence: {self.publish_interval}s per snapshot."
         )
 
     def _setup_client(self):
@@ -80,7 +99,7 @@ class TelemetrySimulator:
         client = create_mqtt_client(self.config, client_id=client_id, clean_session=True)
 
         status_topic = self.config.get_status_topic()
-        
+
         # Configure Last Will and Testament (LWT) for ungraceful disconnects
         lwt_payload = f'{{"machine_id": "{self.config.machine_id}", "status": "offline", "reason": "connection_lost"}}'
         client.will_set(status_topic, payload=lwt_payload, qos=1, retain=True)
@@ -130,41 +149,78 @@ class TelemetrySimulator:
             except Exception as e:
                 logger.warning(f"Error during MQTT disconnect: {e}")
 
-    def run_replay(self, start_idx: int = 0, end_idx: int | None = None, loop: bool = False):
+    def run_replay(
+        self,
+        start_idx: int = 0,
+        end_idx: int | None = None,
+        limit: int | None = None,
+        loop: bool = False
+    ):
         """
         Runs chronological replay loop publishing snapshots over MQTT.
+
+        Replay Safeguards:
+        - Limit safeguard: finite snapshot limit prevents accidental quota exhaustion.
+        - Provenance: strictly identified as 'replayed_nasa_ims'.
+        - Format: 'compact' calculates 36 canonical features at the edge; 'raw' publishes raw array.
         """
         total_files = len(self.snapshot_files)
+        effective_start = max(0, int(start_idx))
+
         target_end_idx = min(end_idx if end_idx is not None else total_files, total_files)
-        
+        if limit is not None and limit > 0:
+            target_end_idx = min(target_end_idx, effective_start + limit)
+
         self.running = True
         telemetry_topic = self.config.get_telemetry_topic()
 
+        planned_count = max(0, target_end_idx - effective_start)
         logger.info(
             f"Starting NASA IMS replay stream to topic '{telemetry_topic}' "
-            f"(snapshots {start_idx} to {target_end_idx - 1} of {total_files})."
+            f"(format={self.payload_format}, snapshots {effective_start} to {target_end_idx - 1} "
+            f"[{planned_count} snapshots], cadence={self.publish_interval}s, loop={loop})."
         )
 
         try:
             while self.running:
-                for idx in range(start_idx, target_end_idx):
+                for idx in range(effective_start, target_end_idx):
                     if not self.running:
                         break
 
                     fpath = self.snapshot_files[idx]
                     orig_dt = parse_snapshot_timestamp(fpath)
-                    
+
                     # Load raw 20480x4 snapshot
                     df_raw = load_snapshot(fpath)
 
-                    # Build telemetry JSON payload
-                    payload_dict = build_telemetry_payload(
-                        raw_snapshot=df_raw,
-                        machine_id=self.config.machine_id,
-                        snapshot_sequence=idx,
-                        original_timestamp=orig_dt,
-                        sampling_rate_hz=20480.0
-                    )
+                    if self.payload_format == "compact":
+                        # Compute exact 36 canonical features at the edge on raw snapshot
+                        vector = self.canonical_pipeline.process_snapshot_dataframe(
+                            df_snapshot=df_raw,
+                            machine_id=self.config.machine_id,
+                            snapshot_sequence=idx,
+                            original_timestamp=orig_dt,
+                            sampling_rate_hz=20480.0
+                        )
+                        payload_dict = build_compact_telemetry_payload(
+                            features=vector.feature_dict,
+                            machine_id=self.config.machine_id,
+                            snapshot_sequence=idx,
+                            original_timestamp=orig_dt,
+                            sampling_rate_hz=20480.0,
+                            sample_count=20480,
+                            source="replayed_nasa_ims"
+                        )
+                    else:
+                        # Raw v1.0 snapshot payload (~514.8 KB)
+                        payload_dict = build_telemetry_payload(
+                            raw_snapshot=df_raw,
+                            machine_id=self.config.machine_id,
+                            snapshot_sequence=idx,
+                            original_timestamp=orig_dt,
+                            sampling_rate_hz=20480.0,
+                            source="replayed_nasa_ims"
+                        )
 
                     json_str = serialize_payload(payload_dict)
                     payload_kb = len(json_str.encode('utf-8')) / 1024.0
@@ -176,7 +232,7 @@ class TelemetrySimulator:
 
                     logger.info(
                         f"[{idx + 1}/{total_files}] Published snapshot sequence={idx} "
-                        f"file='{fpath.name}' orig_ts='{orig_dt}' size={payload_kb:.1f}KB"
+                        f"format={self.payload_format} file='{fpath.name}' orig_ts='{orig_dt}' size={payload_kb:.1f}KB"
                     )
 
                     time.sleep(self.publish_interval)
@@ -197,12 +253,40 @@ def main():
     parser = argparse.ArgumentParser(description="MachineMind AI — NASA IMS Telemetry Replay Simulator")
     parser.add_argument("--start-idx", type=int, default=0, help="Starting snapshot index (default: 0)")
     parser.add_argument("--end-idx", type=int, default=None, help="Ending snapshot index (default: all)")
-    parser.add_argument("--interval", type=float, default=1.0, help="Publish cadence interval in seconds (default: 1.0)")
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=int(os.getenv("SIMULATOR_MAX_SNAPSHOTS", "20")),
+        help="Maximum number of snapshots to replay (default: 20, set 0 or use --all for unlimited)"
+    )
+    parser.add_argument(
+        "--all",
+        action="store_true",
+        help="Replay all snapshots without a finite limit safeguard"
+    )
+    parser.add_argument(
+        "--interval",
+        type=float,
+        default=float(os.getenv("SIMULATOR_PUBLISH_INTERVAL", "5.0")),
+        help="Publish cadence interval in seconds (default: 5.0, min: 0.01)"
+    )
+    parser.add_argument(
+        "--format",
+        choices=["compact", "raw"],
+        default=os.getenv("SIMULATOR_PAYLOAD_FORMAT", "compact"),
+        help="Payload format: 'compact' (v2.0, ~1.2 KB) or 'raw' (v1.0, ~514.8 KB). Default: compact."
+    )
     parser.add_argument("--loop", action="store_true", help="Loop replay indefinitely")
     args = parser.parse_args()
 
+    limit = None if args.all or args.limit <= 0 else args.limit
+
     config = MQTTConfig()
-    simulator = TelemetrySimulator(config=config, publish_interval=args.interval)
+    simulator = TelemetrySimulator(
+        config=config,
+        publish_interval=args.interval,
+        payload_format=args.format
+    )
 
     # Handle termination signals cleanly
     def signal_handler(sig, frame):
@@ -213,7 +297,12 @@ def main():
     signal.signal(signal.SIGTERM, signal_handler)
 
     if simulator.start_connection():
-        simulator.run_replay(start_idx=args.start_idx, end_idx=args.end_idx, loop=args.loop)
+        simulator.run_replay(
+            start_idx=args.start_idx,
+            end_idx=args.end_idx,
+            limit=limit,
+            loop=args.loop
+        )
 
 
 if __name__ == "__main__":

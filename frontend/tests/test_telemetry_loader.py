@@ -297,9 +297,9 @@ def test_main_dashboard_fragment_and_toggle():
     }
 
     app_file = Path(__file__).parent.parent / "app.py"
-    with patch("frontend.app.get_health", return_value={"status": "ok", "service": "machinemind-backend"}), \
-         patch("frontend.app.load_live_telemetry", return_value=sample_stream):
-        at = AppTest.from_file(str(app_file))
+    with patch("frontend.services.api_client.get_health", return_value={"status": "ok", "service": "machinemind-backend"}), \
+         patch("frontend.services.telemetry_loader.fetch_telemetry_stream", return_value=sample_stream):
+        at = AppTest.from_file(str(app_file), default_timeout=10)
         at.run()
         assert not at.exception
         if at.sidebar.checkbox:

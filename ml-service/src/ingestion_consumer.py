@@ -45,6 +45,7 @@ class TelemetryRecord:
     """
     Clean internal representation of validated vibration telemetry snapshot.
     Establishes the boundary between MQTT ingestion and downstream ML/storage pipelines.
+    Supports both raw-channel snapshots (v1.0) and compact canonical feature snapshots (v2.0).
     """
     machine_id: str
     snapshot_sequence: int
@@ -53,7 +54,9 @@ class TelemetryRecord:
     sampling_rate_hz: float
     sample_count: int
     source: str
-    channels: Dict[str, np.ndarray]  # Dict mapping 'ch1'..'ch4' -> 1D float64 numpy array (20480,)
+    channels: Optional[Dict[str, np.ndarray]] = None  # Dict mapping 'ch1'..'ch4' -> 1D float64 numpy array (20480,) for v1.0
+    features: Optional[Dict[str, float]] = None  # Dict of 36 canonical vibration features for v2.0
+    schema_version: str = "1.0"
     ingestion_metadata: Dict[str, Any] = field(default_factory=dict)
 
     def to_summary_dict(self) -> Dict[str, Any]:
@@ -66,7 +69,11 @@ class TelemetryRecord:
             "sampling_rate_hz": self.sampling_rate_hz,
             "sample_count": self.sample_count,
             "source": self.source,
-            "channels_present": list(self.channels.keys()),
+            "schema_version": self.schema_version,
+            "has_raw_channels": self.channels is not None,
+            "has_compact_features": self.features is not None,
+            "channels_present": list(self.channels.keys()) if self.channels else [],
+            "feature_count": len(self.features) if self.features else (len(self.channels) if self.channels else 0),
             "ingestion_metadata": self.ingestion_metadata,
         }
 
@@ -267,12 +274,22 @@ class TelemetryIngestionConsumer:
                 self._last_sequences[machine_id] = seq
                 self.metrics.last_processed_sequence[machine_id] = seq
 
-            # 4. Convert Raw Channel Lists to 1D Float64 Numpy Arrays
-            # Avoid unneeded memory allocations by direct in-place numpy array view conversion
-            channels_np: Dict[str, np.ndarray] = {}
-            for ch_name in EXPECTED_CHANNELS:
-                samples_list = payload_dict["channels"][ch_name]
-                channels_np[ch_name] = np.asarray(samples_list, dtype=np.float64)
+            version = str(payload_dict.get("schema_version", "1.0"))
+            channels_np: Optional[Dict[str, np.ndarray]] = None
+            features_dict: Optional[Dict[str, float]] = None
+
+            if version == "1.0":
+                # 4a. Convert Raw Channel Lists to 1D Float64 Numpy Arrays (v1.0)
+                channels_np = {}
+                for ch_name in EXPECTED_CHANNELS:
+                    samples_list = payload_dict["channels"][ch_name]
+                    channels_np[ch_name] = np.asarray(samples_list, dtype=np.float64)
+            elif version == "2.0":
+                # 4b. Extract Canonical Features (v2.0)
+                features_dict = {
+                    feat_name: float(payload_dict["features"][feat_name])
+                    for feat_name in payload_dict["features"]
+                }
 
             processing_latency_ms = (time.time() - start_time) * 1000.0
 
@@ -286,6 +303,8 @@ class TelemetryIngestionConsumer:
                 sample_count=int(payload_dict["sample_count"]),
                 source=str(payload_dict["source"]),
                 channels=channels_np,
+                features=features_dict,
+                schema_version=version,
                 ingestion_metadata={
                     "is_duplicate": is_duplicate,
                     "is_out_of_order": is_out_of_order,

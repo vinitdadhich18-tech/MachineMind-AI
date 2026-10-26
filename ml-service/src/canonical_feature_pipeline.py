@@ -197,7 +197,31 @@ class CanonicalFeaturePipeline:
         if not isinstance(record, TelemetryRecord):
             raise TypeError(f"Expected TelemetryRecord, got {type(record)}.")
 
-        # Reconstruct DataFrame from 1D float64 NumPy arrays in TelemetryRecord
+        # If compact v2.0 record with pre-computed canonical features
+        if record.features is not None:
+            missing_feats = set(self.feature_names) - set(record.features.keys())
+            if missing_feats:
+                raise KeyError(f"TelemetryRecord features missing expected keys: {sorted(missing_feats)}")
+
+            feat_vals = np.array([float(record.features[col]) for col in self.feature_names], dtype=np.float64)
+
+            vector = CanonicalFeatureVector(
+                machine_id=str(record.machine_id),
+                snapshot_sequence=int(record.snapshot_sequence),
+                original_timestamp=str(record.original_timestamp),
+                ingest_timestamp=str(record.ingest_timestamp),
+                sampling_rate_hz=float(record.sampling_rate_hz),
+                feature_names=self.feature_names.copy(),
+                feature_values=feat_vals,
+                feature_dict={col: float(record.features[col]) for col in self.feature_names}
+            )
+            vector.validate_finite()
+            return vector
+
+        # Raw v1.0 record: Reconstruct DataFrame from 1D float64 NumPy arrays
+        if not record.channels:
+            raise ValueError("TelemetryRecord does not contain channels or features.")
+
         df_snapshot = pd.DataFrame({
             "Channel_1": record.channels["ch1"],
             "Channel_2": record.channels["ch2"],
